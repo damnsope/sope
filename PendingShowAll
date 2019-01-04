@@ -1,0 +1,139 @@
+Private Sub UserForm_Activate()
+    Dim cnn As ADODB.Connection, rs As ADODB.Recordset
+    Dim strSQL As String
+    toFind = LCase(Environ("username"))
+    toFind = "kelvintansh"
+    dbPath = Sheets(1).Range("A3").Value
+    
+    LBuser.Caption = "Searching pending applications for:   " & toFind
+    'Reset listbox
+    LBdata.ColumnWidths = "1;70;70;55;55;55;55;50;200"
+    LBdata.AddItem "Case ID"
+    LBdata.List(LBdata.ListCount - 1, 1) = "Request Type"
+    LBdata.List(LBdata.ListCount - 1, 2) = "Status"
+    LBdata.List(LBdata.ListCount - 1, 3) = "RM"
+    LBdata.List(LBdata.ListCount - 1, 4) = "RM TL"
+    LBdata.List(LBdata.ListCount - 1, 5) = "IC"
+    LBdata.List(LBdata.ListCount - 1, 6) = "IC TL"
+    LBdata.List(LBdata.ListCount - 1, 7) = "HH ID"
+    LBdata.List(LBdata.ListCount - 1, 8) = "HH Name"
+    
+    On Error GoTo noRecordsfound
+    If toFind = "audraseah" Then
+        strSQL = "SELECT * FROM IC_Tagging WHERE [caseStatus]='PENDING IA HEAD'"
+    Else
+        strSQL = "SELECT * FROM IC_Tagging WHERE ([ARM]='" & toFind & "' AND [caseStatus] LIKE '%ARM') OR " & _
+                                            "([RM]='" & toFind & "' AND [caseStatus] LIKE '%RM') OR " & _
+                                            "([RM TL]='" & toFind & "' AND [caseStatus] LIKE '%RM TL') OR " & _
+                                            "([IC]='" & toFind & "' AND [caseStatus] LIKE '%IC') OR " & _
+                                            "([IC TL]='" & toFind & "' AND [caseStatus] LIKE '%IC TL') ORDER BY [FirstSubmitDate] DESC"
+    End If
+    
+    Set cnn = New ADODB.Connection ' Initialise the collection class variable
+    Set rs = New ADODB.Recordset 'assign memory to the recordset
+    cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
+    rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
+    
+    rs.MoveFirst
+    
+    On Error Resume Next
+    With rs
+        Do Until .EOF
+            LBdata.AddItem .Fields(0).Value
+            LBdata.List(LBdata.ListCount - 1, 1) = .Fields("ApplicationType").Value
+            LBdata.List(LBdata.ListCount - 1, 2) = .Fields("CaseStatus").Value
+            LBdata.List(LBdata.ListCount - 1, 3) = .Fields("RM").Value
+            LBdata.List(LBdata.ListCount - 1, 4) = .Fields("RM TL").Value
+            LBdata.List(LBdata.ListCount - 1, 5) = .Fields("IC").Value
+            LBdata.List(LBdata.ListCount - 1, 6) = .Fields("IC TL").Value
+            LBdata.List(LBdata.ListCount - 1, 7) = .Fields("CollectionID").Value
+            LBdata.List(LBdata.ListCount - 1, 8) = .Fields("HouseholdName").Value
+            .MoveNext
+        Loop
+    End With
+    
+    rs.Close
+    cnn.Close
+    Set rs = Nothing
+    Set cnn = Nothing
+    Exit Sub
+noRecordsfound:
+    MsgBox "You have no pending applications.", vbInformation, "DBS Bank - Live more, Bank less"
+    Unload Me
+    Exit Sub
+End Sub
+
+Private Sub btnApprove_Click()
+    Dim msg As String
+    
+    If LBdata.Selected(0) = True Then
+        LBdata.Selected(0) = False
+    End If
+    
+    ans = MsgBox("This action cannot be undone. Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
+    If ans = vbNo Then
+        Exit Sub
+    End If
+                
+    For i = 1 To LBdata.ListCount - 1
+        If LBdata.Selected(i) Then
+            TBcaseID.Caption = LBdata.List(i)
+            msg = msg & TBcaseID.Caption & vbNewLine
+            action = "skip"
+            Call PendingApplications.btnApprove_Click
+        End If
+    Next i
+    Unload Me
+End Sub
+
+Private Sub btnHelp_Click()
+    MsgBox "1) Quick Approve" & vbNewLine & _
+            "Select multiple cases and approve all at once." & vbNewLine & _
+            vbNewLine & _
+            "2) View Details" & vbNewLine & _
+            "Select only 1 case to view tagging details or to reject cases.", vbInformation, "DBS Bank - Live more, Bank less"
+            
+End Sub
+
+Private Sub btnSelect_Click()
+    Dim count As Integer
+    count = 0
+    
+     If LBdata.Selected(0) = True Then
+        LBdata.Selected(0) = False
+    End If
+    
+    For i = 1 To LBdata.ListCount - 1
+        If LBdata.Selected(i) Then
+            count = count + 1
+             TBcaseID.Caption = LBdata.List(i)
+        End If
+    Next i
+    
+    If TBcaseID.Caption = "<caseID>" Then
+        Exit Sub
+    End If
+    
+    If count > 1 Then
+        LBdata.Selected(LBdata.ListIndex) = False
+        MsgBox "Please select only 1 to view in detail.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+
+    PendingApplications.Show
+    Unload Me
+End Sub
+
+Private Sub btnToggle_Click()
+    If CheckBox1.Value = False Then
+        For i = 1 To LBdata.ListCount - 1
+            LBdata.Selected(i) = True
+        Next i
+        CheckBox1.Value = True
+    Else
+        For i = 1 To LBdata.ListCount - 1
+            LBdata.Selected(i) = False
+        Next i
+        CheckBox1.Value = False
+    End If
+End Sub
