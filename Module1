@@ -1,0 +1,163 @@
+Public RMoptBtn, action, selectedRank, dbPath, filePath, toFind, cid, reject As String, endTag As Date
+
+'For userform mousewheel scrolling
+'Option Explicit
+'Private Type POINTAPI
+'    x                               As Long
+'    Y                               As Long
+'End Type
+'Private Type MOUSEHOOKSTRUCT
+'    pt                              As POINTAPI
+'    hWnd                            As Long
+'    wHitTestCode                    As Long
+'    dwExtraInfo                     As Long
+'End Type
+'
+'Private Declare PtrSafe Function FindWindow Lib "user32" _
+'Alias "FindWindowA" ( _
+'ByVal lpClassName As String, _
+'ByVal lpWindowName As String) As Long
+'
+'Private Declare PtrSafe Function GetWindowLong Lib "User32.dll" _
+'Alias "GetWindowLongA" ( _
+'ByVal hWnd As Long, _
+'ByVal nIndex As Long) As Long
+'
+'Private Declare PtrSafe Function SetWindowsHookEx Lib "user32" _
+'Alias "SetWindowsHookExA" ( _
+'ByVal idHook As Long, _
+'ByVal lpfn As Long, _
+'ByVal hmod As Long, _
+'ByVal dwThreadId As Long) As Long
+'
+'Private Declare PtrSafe Function CallNextHookEx Lib "user32" ( _
+'ByVal hHook As Long, _
+'ByVal nCode As Long, _
+'ByVal wParam As Long, _
+'lParam As Any) As Long
+'
+'Private Declare PtrSafe Function UnhookWindowsHookEx Lib "user32" ( _
+'ByVal hHook As Long) As Long
+'
+'Private Declare PtrSafe Function PostMessage Lib "User32.dll" _
+'Alias "PostMessageA" ( _
+'ByVal hWnd As Long, _
+'ByVal wMsg As Long, _
+'ByVal wParam As Long, _
+'ByVal lParam As Long) As Long
+'
+'Private Declare PtrSafe Function WindowFromPoint Lib "user32" ( _
+'ByVal xPoint As Long, _
+'ByVal yPoint As Long) As Long
+'
+'Private Declare PtrSafe Function GetCursorPos Lib "User32.dll" ( _
+'ByRef lpPoint As POINTAPI) As Long
+'
+'Private Const WH_MOUSE_LL          As Long = 14
+'Private Const WM_MOUSEWHEEL        As Long = &H20A
+'Private Const HC_ACTION            As Long = 0
+'Private Const GWL_HINSTANCE        As Long = (-6)
+'
+'Private Const WM_KEYDOWN           As Long = &H100
+'Private Const WM_KEYUP             As Long = &H101
+'Private Const VK_UP                As Long = &H26
+'Private Const VK_DOWN              As Long = &H28
+'Private Const WM_LBUTTONDOWN       As Long = &H201
+'
+'Private Const cSCROLLCHANGE        As Long = 10
+'
+'Private mLngMouseHook              As Long
+'Private mFormHwnd                  As Long
+'Private mbHook                     As Boolean
+'Dim mForm                          As Object
+'
+' Sub HookFormScroll(oForm As Object)
+'    Dim lngAppInst                  As Long
+'    Dim hwndUnderCursor             As Long
+'
+'    Set mForm = oForm
+'    hwndUnderCursor = FindWindow("ThunderDFrame", oForm.Caption)
+'    If mFormHwnd <> hwndUnderCursor Then
+'        UnhookFormScroll
+'        mFormHwnd = hwndUnderCursor
+'        lngAppInst = GetWindowLong(mFormHwnd, GWL_HINSTANCE)
+'        If Not mbHook Then
+'            mLngMouseHook = SetWindowsHookEx( _
+'            WH_MOUSE_LL, AddressOf MouseProc, lngAppInst, 0)
+'            mbHook = mLngMouseHook <> 0
+'        End If
+'    End If
+'End Sub
+'
+'Sub UnhookFormScroll()
+'    If mbHook Then
+'        UnhookWindowsHookEx mLngMouseHook
+'        mLngMouseHook = 0
+'        mFormHwnd = 0
+'        mbHook = False
+'    End If
+'End Sub
+'
+'Private Function MouseProc( _
+'    ByVal nCode As Long, ByVal wParam As Long, _
+'    ByRef lParam As MOUSEHOOKSTRUCT) As Long
+'    On Error GoTo errH
+'    If (nCode = HC_ACTION) Then
+'        If wParam = WM_MOUSEWHEEL Then
+'            MouseProc = True
+'            If lParam.hWnd > 0 Then
+'                mForm.ScrollTop = Application.Max(0, mForm.ScrollTop - cSCROLLCHANGE)
+'            Else
+'                mForm.ScrollTop = Application.Min(mForm.ScrollHeight - mForm.InsideHeight, mForm.ScrollTop + cSCROLLCHANGE)
+'            End If
+'            Exit Function
+'        End If
+'    End If
+'    MouseProc = CallNextHookEx( _
+'    mLngMouseHook, nCode, wParam, ByVal lParam)
+'    Exit Function
+'errH:
+'    UnhookFormScroll
+'End Function
+
+Public Sub UpdatePending()
+    Dim cnn As ADODB.Connection, rs As ADODB.Recordset
+    Dim toFind, strSQL As String
+    dbPath = Sheets(1).Range("A3").Value
+    filePath = Sheets(1).Range("A4").Value
+    toFind = LCase(Environ("username"))
+    Sheets(1).Unprotect "dbs"
+    Sheets(1).Activate
+    
+    'Count pending applications
+    strSQL = "SELECT * FROM IC_Tagging WHERE ([ARM]='" & toFind & "' AND [caseStatus] LIKE '%ARM') OR " & _
+                                            "([RM]='" & toFind & "' AND [caseStatus] LIKE '%RM') OR " & _
+                                            "([RM TL]='" & toFind & "' AND [caseStatus] LIKE '%RM TL') OR " & _
+                                            "([IC]='" & toFind & "' AND [caseStatus] LIKE '%IC') OR " & _
+                                            "([IC TL]='" & toFind & "' AND [caseStatus] LIKE '%IC TL')"
+                                            
+    Set cnn = New ADODB.Connection ' Initialise the collection class variable
+    Set rs = New ADODB.Recordset 'assign memory to the recordset
+    cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
+    rs.Open strSQL, cnn, adOpenStatic
+
+    Range("S1").Value = "Welcome back, " & toFind & "."
+    Range("S2").Value = "You have " & rs.RecordCount & " pending application(s)."
+    
+    Range("A1").Select
+    Sheets(1).Protect "dbs", True, True
+    '=============================================
+    ' Opens outlook if it is not already open
+    Dim oOutlook As Object
+
+    On Error Resume Next
+    Set oOutlook = GetObject(, "Outlook.Application")
+    On Error GoTo 0
+    
+    If oOutlook Is Nothing Then
+        On Error Resume Next
+        Shell ("OUTLOOK")
+        'Set oOutlook = CreateObject("Outlook.Application")
+    End If
+    
+End Sub
