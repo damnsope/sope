@@ -1,0 +1,77 @@
+Private Sub btnSelect_Click()
+'checking valid date
+Dim SelectedDate As String, noYears As Integer
+SelectedDate = IsDate(CBmonth.Value & "/" & CByear.Value)
+
+If SelectedDate = False Then
+    MsgBox "Please select a valid date!", vbInformation, "DBS - Live more, Bank less"
+    Exit Sub
+End If
+
+If DateDiff("m", CBmonth.Value & "/" & CByear.Value, Date) < 1 Then
+    MsgBox "Please select a valid date!", vbInformation, "DBS - Live more, Bank less"
+    Exit Sub
+End If
+
+    NewApplication.TBopening.Value = CBmonth.Value & "/" & CByear.Value
+    NewApplication.TBopening.Value = Format(NewApplication.TBopening.Value, "mmm yyyy")
+    noYears = DateDiff("yyyy", NewApplication.TBopening.Value, Date)
+    
+    'Calculates time difference
+    If noYears = 0 Then
+        noYears = DateDiff("m", NewApplication.TBopening.Value, Date)
+        NewApplication.TBlength.Value = noYears & " months"
+    Else
+        NewApplication.TBlength.Value = noYears & " years"
+    End If
+    
+    Unload Me
+End Sub
+
+Private Sub UserForm_Activate()
+Dim mmm As String, yyyy As Long, aDate As String
+
+aDate = NewApplication.TBopening.Value
+If aDate <> "" Then
+    mmm = Left(aDate, Len(aDate) - 5)
+    yyyy = Right(aDate, Len(aDate) - 4)
+Else
+    mmm = Format(Now(), "mmm")
+    yyyy = Format(Now(), "yyyy")
+End If
+
+CBmonth.AddItem "Jan"
+CBmonth.AddItem "Feb"
+CBmonth.AddItem "Mar"
+CBmonth.AddItem "Apr"
+CBmonth.AddItem "May"
+CBmonth.AddItem "Jun"
+CBmonth.AddItem "Jul"
+CBmonth.AddItem "Aug"
+CBmonth.AddItem "Sep"
+CBmonth.AddItem "Oct"
+CBmonth.AddItem "Nov"
+CBmonth.AddItem "Dec"
+CByear.AddItem Format(Now(), "yyyy") - 15
+CByear.AddItem Format(Now(), "yyyy") - 14
+CByear.AddItem Format(Now(), "yyyy") - 13
+CByear.AddItem Format(Now(), "yyyy") - 12
+CByear.AddItem Format(Now(), "yyyy") - 11
+CByear.AddItem Format(Now(), "yyyy") - 10
+CByear.AddItem Format(Now(), "yyyy") - 9
+CByear.AddItem Format(Now(), "yyyy") - 8
+CByear.AddItem Format(Now(), "yyyy") - 7
+CByear.AddItem Format(Now(), "yyyy") - 6
+CByear.AddItem Format(Now(), "yyyy") - 5
+CByear.AddItem Format(Now(), "yyyy") - 4
+CByear.AddItem Format(Now(), "yyyy") - 3
+CByear.AddItem Format(Now(), "yyyy") - 2
+CByear.AddItem Format(Now(), "yyyy") - 1
+CByear.AddItem Format(Now(), "yyyy")
+
+CBmonth.Value = mmm
+CByear.Value = yyyy
+TBtoday = CBmonth & "/" & CByear
+
+End Sub
+
