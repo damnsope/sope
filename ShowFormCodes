@@ -1,0 +1,29 @@
+
+Sub Newapplicationform()
+    action = "new"
+    NewApplicationARMRM.Show
+End Sub
+Sub CheckStatus()
+    action = "check"
+    SearchTagging.Show
+End Sub
+Sub PendingCaseForm()
+    action = "pending"
+    PendingShowAll.Show
+End Sub
+Sub ReTaggingForm()
+    action = "retag"
+    NewApplicationARMRM.Show
+End Sub
+Sub UnTaggingForm()
+    action = "untag"
+    SearchTagging.Show
+End Sub
+Sub Export()
+    action = "export"
+    Admin.Show
+End Sub
+Sub Bluesky()
+    action = "bluesky"
+    Admin.Show
+End Sub
