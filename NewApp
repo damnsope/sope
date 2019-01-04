@@ -1,0 +1,704 @@
+Private Sub UserForm_Activate()
+    'HookFormScroll Me
+    toFind = LCase(Environ("username"))
+    dbPath = Sheets(1).Range("A3").Value
+
+    Dim month As String
+    
+    'Hiding labels/textboxes that are not relevant
+    LBaum2.Visible = False
+    TBaum2.Visible = False
+
+    If RMoptBtn = "ARM" Then
+        TBarm.Value = WorksheetFunction.Proper(Environ("Username"))
+    ElseIf RMoptBtn = "RM" Then
+        LBarm.Visible = False
+        TBarm.Visible = False
+        TBrm.Value = WorksheetFunction.Proper(Environ("Username"))
+        LBrm.Left = 24
+        TBrm.Left = 156
+        TBrm.width = 120
+        LBrmTL.Left = 282
+        TBrmTL.Left = 348
+        TBrmTL.width = 120
+    End If
+    
+    'If all checkboxes ticked (true, true, true), don't hide anything
+    
+    If NewApplicationARMRM.CBOXicGen.Value = True And NewApplicationARMRM.cBoxICEQ.Value = False And NewApplicationARMRM.cBoxICFX.Value = False Then
+        LBicEQ.Visible = False
+        TBicEQ.Visible = False
+        LBiceqTL.Visible = False
+        TBiceqTL.Visible = False
+        LBicFX.Visible = False
+        TBicFX.Visible = False
+        LBicfxTL.Visible = False
+        TBicfxTL.Visible = False
+        
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = False And NewApplicationARMRM.cBoxICEQ.Value = False And NewApplicationARMRM.cBoxICFX.Value = True Then
+        LBicGen.Visible = False
+        TBicGen.Visible = False
+        LBicGenTL.Visible = False
+        TBicGenTL.Visible = False
+        LBicEQ.Visible = False
+        TBicEQ.Visible = False
+        LBiceqTL.Visible = False
+        TBiceqTL.Visible = False
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = False And NewApplicationARMRM.cBoxICEQ.Value = True And NewApplicationARMRM.cBoxICFX.Value = False Then
+        LBicGen.Visible = False
+        TBicGen.Visible = False
+        LBicGenTL.Visible = False
+        TBicGenTL.Visible = False
+        LBicFX.Visible = False
+        TBicFX.Visible = False
+        LBicfxTL.Visible = False
+        TBicfxTL.Visible = False
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = True And NewApplicationARMRM.cBoxICEQ.Value = False And NewApplicationARMRM.cBoxICFX.Value = True Then
+        LBicEQ.Visible = False
+        TBicEQ.Visible = False
+        LBiceqTL.Visible = False
+        TBiceqTL.Visible = False
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = True And NewApplicationARMRM.cBoxICEQ.Value = True And NewApplicationARMRM.cBoxICFX.Value = False Then
+        LBicFX.Visible = False
+        TBicFX.Visible = False
+        LBicfxTL.Visible = False
+        TBicfxTL.Visible = False
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = False And NewApplicationARMRM.cBoxICEQ.Value = True And NewApplicationARMRM.cBoxICFX.Value = True Then
+        LBicGen.Visible = False
+        TBicGen.Visible = False
+        LBicGenTL.Visible = False
+        TBicGenTL.Visible = False
+    End If
+    
+    'static values for testing
+    TBarm.Value = "insertARMhere"
+    TBrm.Value = "lisayeo"
+    TBrmTL.Value = "cynthiachia"
+    TBHHID.Value = "1122334"
+    TBHHName.Value = "householdNAME"
+    TBsAcc.Value = "S-"
+    TBname.Value = "Marcus Lim"
+    CBsegment.Value = "PB"
+    CBriskPF.Value = "High"
+    TBinvexp.Value = "everything"
+    CBstartTag.Value = "Dec-18"
+    TBlength.Value = "4 years"
+    TBopening.Value = "Dec 2014"
+
+    'Combo boxes
+    CBsegment.AddItem "PB"
+    CBsegment.AddItem "TPC"
+    CBriskPF.AddItem "Low"
+    CBriskPF.AddItem "Medium"
+    CBriskPF.AddItem "High"
+    
+    For i = -1 To 3
+        CBstartTag.AddItem Format(DateAdd("m", i, Date), "mmm-yy")
+    Next i
+    
+    
+    MsgBox "Hello " & toFind & "," & vbNewLine & _
+    vbNewLine & _
+    "This is a reminder that the client you are tagging has to meet these 2 criteria: " & vbNewLine & _
+    "1) Accredited Investor" & vbNewLine & _
+    "2) Non-US Person", vbInformation, "DBS Bank - Live more, Bank less"
+    
+End Sub
+Private Sub btnSubmit_Click()
+    Dim icGEN, icEQ, icFX, icgenTL, iceqTL, icfxTL As String
+    Dim icType, nextToApprove, msg, msgType, msgHTML As String
+    Dim icTypes(3), caseID(3), ic(3), icTL(3) As String
+    Dim lastR As Long
+    
+'=============================================================================================
+'=============================================================================================
+    '1) Make sure no blanks
+    
+    'ARM
+    If RMoptBtn = "ARM" And TBarm.Value = "" Then
+        MsgBox "Please input ARM 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    
+    'Check if is 1Bank
+    If InStr(TBarm.Value, " ") > 0 Or InStr(TBrm.Value, " ") > 0 Or InStr(TBicGen.Value, " ") > 0 Or InStr(TBicGenTL.Value, " ") > 0 Or InStr(TBiceqValue, " ") > 0 Or InStr(TBiceqTL.Value, " ") > 0 Or InStr(TBicFX.Value, " ") > 0 Or InStr(TBicfxTL.Value, " ") > 0 Then
+        MsgBox "Please ensure that you have entered 1Bank ID, not the names of those involved.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    
+    'RM & RM TL
+    If TBrm.Value = "" Then
+        MsgBox "Please input RM 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    If TBrmTL.Value = "" Then
+        MsgBox "Please input RM TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    
+    ' Gen
+    If NewApplicationARMRM.CBOXicGen.Value = True And NewApplicationARMRM.cBoxICEQ.Value = False And NewApplicationARMRM.cBoxICFX.Value = False Then
+        If TBicGen.Value = "" Then
+            MsgBox "Please input IC GEN 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicGenTL.Value = "" Then
+            MsgBox "Please input IC GEN TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    ' FX
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = False And NewApplicationARMRM.cBoxICEQ.Value = False And NewApplicationARMRM.cBoxICFX.Value = True Then
+        If TBicFX.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicfxTL.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    ' EQ
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = False And NewApplicationARMRM.cBoxICEQ.Value = True And NewApplicationARMRM.cBoxICFX.Value = False Then
+        If TBicEQ.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBiceqTL.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    '   GEN & FX
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = True And NewApplicationARMRM.cBoxICEQ.Value = False And NewApplicationARMRM.cBoxICFX.Value = True Then
+        If TBicGen.Value = "" Then
+            MsgBox "Please input IC GEN TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicGenTL.Value = "" Then
+            MsgBox "Please input IC GEN TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicFX.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicfxTL.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    ' GEN & EQ
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = True And NewApplicationARMRM.cBoxICEQ.Value = True And NewApplicationARMRM.cBoxICFX.Value = False Then
+        If TBicGen.Value = "" Then
+            MsgBox "Please input IC GEN TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicGenTL.Value = "" Then
+            MsgBox "Please input IC GEN TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicEQ.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBiceqTL.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    ' EQ & FX
+    ElseIf NewApplicationARMRM.CBOXicGen.Value = False And NewApplicationARMRM.cBoxICEQ.Value = True And NewApplicationARMRM.cBoxICFX.Value = True Then
+        If TBicEQ.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBiceqTL.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicFX.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicfxTL.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    ' GEN & EQ & FX
+    Else
+        If TBicGen.Value = "" Then
+            MsgBox "Please input IC GEN TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicGenTL.Value = "" Then
+            MsgBox "Please input IC GEN TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicEQ.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBiceqTL.Value = "" Then
+            MsgBox "Please input IC EQ TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicFX.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+        If TBicfxTL.Value = "" Then
+            MsgBox "Please input IC FX TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    End If
+    'HH ID
+    If TBHHID.Value = "" Then
+        MsgBox "Please input a collection ID.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    'HH Name
+    If TBHHName.Value = "" Then
+        MsgBox "Please input a Household Name.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    'S-Account
+    If TBsAcc.Value = "" Then
+        MsgBox "Please input client's S-Account number.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    'NW
+    If TBnw.Value = "" Then
+        MsgBox "Please input client's overall net worth.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    'AUM
+    If TBaum.Value = "" Then
+        MsgBox "Please input client's net AUM with DBS.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    'AUM justification
+    If Left(TBaum.Value, Len(TBaum.Value) - 1) < 5 Then
+        If TBaum2.Value = "" Then
+            MsgBox "Please input justification for client's Net AUM being below 5m.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    End If
+    '@Acc Opening
+    If TBopening.Value = "" Or TBlength.Value = "" Then
+        MsgBox "Please input client's account opening date.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    '@Risk Portfolio
+    If CBriskPF.Value = "" Then
+        MsgBox "Please input client's risk portfolio.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    'Effective Tagging Month
+    If CBstartTag.Value = "" Then
+        MsgBox "Please input the effective tagging month.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    ElseIf DateSerial(Year(CBstartTag.Value), month(CBstartTag.Value), 1) < DateSerial(Year(TBopening.Value), month(TBopening.Value), 1) Then
+        MsgBox "Tagging Start Date cannot be before account opening date.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    ElseIf CBstartTag.Value = Format(DateAdd("m", -1, Date), "mmm-yy") Then
+        ans = MsgBox("Revenue will be backdated. Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
+        If ans = vbNo Then
+            Exit Sub
+        End If
+    End If
+
+'===============================================================================================
+'===============================================================================================
+    '2)
+'===============================================================================================
+    'Read inputs from userform
+    iYear = CInt(Split(CBstartTag.Value, "-")(1))
+    iMonth = month("01/" & Format(Split(CBstartTag.Value, "-")(0), "mmmm"))
+    startTag = DateSerial(iYear, iMonth, 1)
+
+    icGEN = TBicGen.Value
+    icEQ = TBicEQ.Value
+    icFX = TBicFX.Value
+    icgenTL = TBicGenTL.Value
+    iceqTL = TBiceqTL.Value
+    icfxTL = TBicfxTL.Value
+    
+    'IC Type (for splitting userforms that dual tag or triple tag into 2 or 3 rows into database)
+    If (icGEN <> "" And icEQ <> "" And icFX <> "") Then
+        count = 3
+        icType = "GEN/EQ/FX"
+        icTypes(1) = "IC ALL"
+        icTypes(2) = "IC Equity"
+        icTypes(3) = "IC FX"
+        ic(1) = icGEN
+        ic(2) = icEQ
+        ic(3) = icFX
+        icTL(1) = icgenTL
+        icTL(2) = iceqTL
+        icTL(3) = icfxTL
+    ElseIf (icGEN <> "" And icEQ <> "" And icFX = "") Then
+        count = 2
+        icType = "GEN/EQ"
+        icTypes(1) = "IC ALL"
+        icTypes(2) = "IC Equity"
+        ic(1) = icGEN
+        ic(2) = icEQ
+        icTL(1) = icgenTL
+        icTL(2) = iceqTL
+    ElseIf (icGEN <> "" And icEQ = "" And icFX <> "") Then
+        count = 2
+        icType = "GEN/FX"
+        icTypes(1) = "IC ALL"
+        icTypes(2) = "IC FX"
+        ic(1) = icGEN
+        ic(2) = icFX
+        icTL(1) = icgenTL
+        icTL(2) = icfxTL
+    ElseIf (icGEN <> "" And icEQ = "" And icFX = "") Then
+        count = 1
+        icType = "GEN"
+        icTypes(1) = "IC ALL"
+        ic(1) = icGEN
+        icTL(1) = icgenTL
+    ElseIf (icGEN = "" And icEQ <> "" And icFX <> "") Then
+        count = 2
+        icType = "EQ/FX"
+        icTypes(1) = "IC Equity"
+        icTypes(2) = "IC FX"
+        ic(1) = icEQ
+        ic(2) = icFX
+        icTL(1) = iceqTL
+        icTL(2) = icfxTL
+    ElseIf (icGEN = "" And icEQ <> "" And icFX = "") Then
+        count = 1
+        icType = "EQ"
+        icTypes(1) = "IC Equity"
+        ic(1) = icEQ
+        icTL(1) = iceqTL
+    ElseIf (icGEN = "" And icEQ = "" And icFX <> "") Then
+        count = 1
+        icType = "FX"
+        icTypes(1) = "IC FX"
+        ic(1) = icFX
+        icTL(1) = icfxTL
+    End If
+    
+    ' Set case ID
+    For i = 1 To count
+        caseID(i) = TBHHID.Value & "_" & ic(i) & "_" & Format(startTag, "mmm-yy")
+    Next i
+'======================================================================================
+    'Validation
+    strSQL = "SELECT * FROM IC_Tagging WHERE [CollectionID] = '" & TBHHID.Value & "'"
+    Set cnn = New ADODB.Connection ' Initialise the collection class variable
+    Set rs = New ADODB.Recordset 'assign memory to the recordset
+    cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
+    rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
+    
+    '1) Check if IC type currently tagged
+    With rs
+        For i = 1 To count
+            If Not (rs.EOF And rs.BOF) Then
+                .MoveFirst
+                Do Until rs.EOF = True
+                    ' 31/12/9999
+                    If IsNull(.Fields("UntaggedMonth").Value) Then
+                        If .Fields("ICType").Value = icTypes(i) Then
+                            MsgBox "HH ID: " & TBHHID.Value & " currently has an " & icTypes(i) & " tagged." & vbNewLine & vbNewLine & _
+                                    "Please submit a retagging request instead.", vbInformation, "DBS Bank - Live more, Bank less"
+                            icTypes(i) = ""
+                            ic(i) = ""
+                            icTL(i) = ""
+                        End If
+                    ' If untagged, but not yet eomonth
+                    ElseIf startTag < .Fields("UntaggedMonth").Value Then
+                        If .Fields("ICType").Value = icTypes(i) Then
+                            MsgBox "HH ID: " & TBHHID.Value & " currently has an " & icTypes(i) & " tagged that will only end on " & Format(.Fields("UntaggedMonth").Value, "mmm-yy") & vbNewLine & vbNewLine & _
+                                    "Please resubmit a tagging for " & ic(i) & ", with a later Effective Tagging Date.", vbInformation, "DBS Bank - Live more, Bank less"
+                            icTypes(i) = ""
+                            ic(i) = ""
+                            icTL(i) = ""
+                        End If
+                    End If
+                    .MoveNext
+                Loop
+            End If
+        Next i
+        
+        '2) IPO indicator
+        'According to beiyu, (dual tag) EQ and Gen then RM decides, if not whoever is tagged first by default
+        ' IF tagging gen and eq, go to eq
+        'if single tag -
+        'Check if IC ALL or IC Equity for all active taggings with this HH
+        
+        '==================================
+        If icGEN <> "" And icEQ <> "" Then
+            'IC EQ gets IPO
+            ans = MsgBox("You are tagging IC Gen and IC Equity." & vbNewLine & "By default, in this case, the IPO revenue is allocated to the IC Equity." & _
+            vbNewLine & vbNewLine & "Please select 'Yes' to continue with the default, or 'No' to allocate the IPO revenue to the IC General instead.", vbYesNo, "DBS Bank - Live more, Bank less")
+            If ans = vbYes Then
+                'EQ
+                'ipo()
+            Else
+                'Gen
+                ipo(1) = "Yes"
+            End If
+        
+        '==================================
+        ElseIf icGEN <> "" Then
+            If Not (rs.EOF And rs.BOF) Then
+                .MoveFirst
+                Do Until rs.EOF = True
+                    If Date > .Fields("TaggedMonth").Value And (Date < .Fields("UntaggedMonth").Value Or IsNull(.Fields("UntaggedMonth").Value)) And _
+                                .Fields("IPO").Value = "Yes" And _
+                                .Fields("ICType").Value = "IC Equity" Then
+                        ans = MsgBox("IPO is currently allocated to the " & .Fields("ICType").Value & ", would you like to change IPO indicator to IC ALL?", vbYesNo, "DBS Bank - Live more, Bank less")
+                        
+                        If ans = vbYes Then
+                            ipo = icGEN
+                        End If
+                    End If
+                    .MoveNext
+                Loop
+            End If
+        '==================================
+        ElseIf icEQ <> "" Then
+            If Not (rs.EOF And rs.BOF) Then
+                .MoveFirst
+                Do Until rs.EOF = True
+                    If Date > .Fields("TaggedMonth").Value And (Date < .Fields("UntaggedMonth").Value Or IsNull(.Fields("UntaggedMonth").Value)) And _
+                                .Fields("IPO").Value = "Yes" And _
+                                .Fields("ICType").Value = "IC ALL" Then
+                        ans = MsgBox("IPO is currently allocated to the " & .Fields("ICType").Value & ", would you like to change IPO indicator to IC Equity?", vbYesNo, "DBS Bank - Live more, Bank less")
+                        If ans = vbYes Then
+                            ipo = icEQ
+                        End If
+                    End If
+                    .MoveNext
+                Loop
+            End If
+        End If
+        
+    End With
+    '============================================================================================
+    For i = 1 To count
+        If icTypes(i) <> "" Then
+            msgicType = msgicType & icTypes(i) & " - " & ic(i) & vbNewLine
+        End If
+    Next i
+
+    If msgicType = "" Then
+        Unload Me
+        Exit Sub
+    Else
+         ans = MsgBox("HH ID: " & TBHHID.Value & " will be tagged to..." & vbNewLine & vbNewLine & _
+        msgicType & vbNewLine & _
+        "Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
+        If ans = vbNo Then
+            Unload Me
+            Exit Sub
+        End If
+    End If
+    
+'===============================================================================================
+    For i = 1 To count
+        If icTypes(i) <> "" Then
+            strSQL = "SELECT * FROM IC_Tagging"
+            Set cnn = New ADODB.Connection ' Initialise the collection class variable
+            Set rs = New ADODB.Recordset 'assign memory to the recordset
+            cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
+            rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
+            
+            On Error Resume Next
+            With rs
+                .AddNew
+                .Fields("CaseID").Value = caseID(i)
+                .Fields("ICType").Value = icTypes(i)
+                .Fields("ApplicationType").Value = "New Application"
+                .Fields("FirstSubmitDate").Value = Evaluate("=NOW()")
+                
+                'Next person to approve
+                If RMoptBtn = "ARM" Then
+                    'RM
+                    .Fields("CaseStatus").Value = "Pending RM"
+                    nextToApprove = TBrm.Value
+                ElseIf RMoptBtn = "RM" Then
+                    'RM TL
+                    .Fields("CaseStatus").Value = "Pending RM TL"
+                    nextToApprove = TBrmTL.Value
+                End If
+                
+                .Fields("ARM").Value = TBarm.Value
+                .Fields("RM").Value = TBrm.Value
+                .Fields("RM TL").Value = TBrmTL.Value
+                .Fields("IC").Value = ic(i)
+                .Fields("IC TL").Value = icTL(i)
+            
+                .Fields("Segment").Value = CBsegment.Value
+                .Fields("CollectionID").Value = TBHHID.Value
+                .Fields("HouseholdName").Value = TBHHName.Value
+                .Fields("SAccount").Value = TBsAcc.Value
+                .Fields("ClientName").Value = TBname.Value
+                .Fields("NetWorth").Value = TBnw.Value
+                .Fields("AUM").Value = TBaum.Value
+                .Fields("JustificationForAUM").Value = TBaum2.Value
+                .Fields("AccOpenDate").Value = Format(TBopening.Value, "dd/mm/yyyy")
+                .Fields("RiskPortfolio").Value = CBriskPF.Value
+                .Fields("InvestmentExperience").Value = TBinvexp.Value
+                .Fields("TaggedMonth").Value = startTag
+                .Fields("Remarks").Value = TBremarks.Value
+                '.Fields("IPO").Value = ipo
+                .Update
+            
+           
+            msg = msg & ic(i) & "<br>"
+            msgType = msgType & ic(i) & " - " & icTypes(i) & vbNewLine
+            End With
+        End If
+    Next i
+    
+
+        
+    '======================================================================================
+        ' Send Email
+        Dim aOutlook As Object, aEmail As Object, str As String
+        Set aOutlook = CreateObject("Outlook.Application")
+        Set aEmail = aOutlook.CreateItem(0)
+        aEmail.To = nextToApprove & "@dbs.com"
+        aEmail.Subject = "[" & UCase(rs.Fields("CaseStatus").Value) & "] IC Tagging Request"
+        aEmail.htmlBody = "Hello " & nextToApprove & "," & "<br>" & _
+        "<br>" & _
+        "<table border=""1"" cellpadding=""1"" cellspacing=""1"" style=""width: 500px;"">" & _
+                "<tbody><tr><td>Collection ID</td>" & _
+                    "<td>RM 1Bank</td>" & _
+                    "<td>IC 1Bank</td>" & _
+                    "<td>Tag Start Date</td></tr>" & _
+                "<tr><td><font color=red>" & TBHHID.Value & "</font></td>" & _
+                     "<td><font color=red>" & TBrm.Value & "</font></td>" & _
+                    "<td><font color=red>" & msg & "</font></td>" & _
+                    "<td><font color=red>" & Format(startTag, "mmm-yy") & "</font></td></tr></tbody>" & _
+                    "</table>" & "<br>" & _
+        "You can approve it in the file here: " & "<br>" & _
+        "<a href=""file://" & filePath & """>Press ctrl & click on me!</a>" & "<br>" & _
+        "<br>" & _
+        "- Admin" & "<br>" & _
+        "This is a system generated email, please do not reply."
+        aEmail.display
+      
+        MsgBox "You have submitted a request(s) to tag Collection ID: " & TBHHID.Value & vbNewLine & _
+        "To IC(s): " & vbNewLine & _
+        msgType & vbNewLine & _
+        "An email has been sent to the next person for approval.", vbInformation, "DBS Bank - Live more, Bank less"
+    
+        rs.Close
+        cnn.Close
+        
+        Unload Me
+        Call UpdatePending
+        
+exists:
+    Set rs = Nothing
+    Set cnn = Nothing
+    
+End Sub
+Private Sub Calendar_Click()
+    AppfrmCalendar.Show
+End Sub
+Private Sub btnClearAll_Click()
+    TBarm.Value = ""
+    TBrm.Value = ""
+    TBrmTL.Value = ""
+    TBicGen.Value = ""
+    TBicEQ.Value = ""
+    TBicFX.Value = ""
+    TBicGenTL.Value = ""
+    TBiceqTL.Value = ""
+    TBicfxTL.Value = ""
+      
+    TBHHID.Value = ""
+    TBHHName.Value = ""
+    TBsAcc.Value = ""
+    TBname.Value = ""
+    CBsegment.Value = ""
+      
+    TBnw.Value = ""
+    TBaum.Value = ""
+    TBaum2.Value = ""
+    TBlength.Value = ""
+    TBopening.Value = ""
+    CBriskPF.Value = ""
+    TBinvexp.Value = ""
+    CBstartTag.Value = ""
+    TBremarks.Value = ""
+
+End Sub
+'These 4 textbox _ Exits does an index match to pull RM/IC 's team lead of that person
+Private Sub TBrm_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    TBrmTL.Value = Evaluate("IFERROR(INDEX('PB_TPC RMs'!F:F,MATCH(""" & TBrm.Value & """,'PB_TPC RMs'!B:B,0)),"""")")
+End Sub
+Private Sub TBicgen_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    TBicGenTL.Value = Evaluate("IFERROR(INDEX('DB'!C:C,MATCH(""" & TBicGen.Value & """,'DB'!J:J,0)),"""")")
+End Sub
+Private Sub TBiceq_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    TBiceqTL.Value = Evaluate("IFERROR(INDEX('DB'!C:C,MATCH(""" & TBicEQ.Value & """,'DB'!J:J,0)),"""")")
+End Sub
+Private Sub TBicfx_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    TBicfxTL.Value = Evaluate("IFERROR(INDEX('DB'!C:C,MATCH(""" & TBicFX.Value & """,'DB'!J:J,0)),"""")")
+End Sub
+Private Sub TBnw_keypress(ByVal KeyAscii As MSForms.ReturnInteger)
+    'Only numbers 0 to 9, and 1 decimal point allowed
+    Select Case KeyAscii
+        Case Asc("0") To Asc("9")
+        Case Asc(".")
+            If InStr(1, TBnw.Value, ".") > 0 Then
+                KeyAscii = 0
+            End If
+        Case Else
+            KeyAscii = 0
+    End Select
+End Sub
+Private Sub TBnw_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If TBnw.Value <> "" Then
+        If Right(TBnw.Value, 1) = "M" Then
+        Else
+            TBnw.Value = TBnw.Value & "M"
+        End If
+    End If
+End Sub
+Private Sub TBaum_keypress(ByVal KeyAscii As MSForms.ReturnInteger)
+    'Only numbers 0 to 9, and 1 decimal point allowed
+    Select Case KeyAscii
+        Case Asc("0") To Asc("9")
+        Case Asc(".")
+            If InStr(1, TBaum.Value, ".") > 0 Then
+                KeyAscii = 0
+            End If
+        Case Else
+            KeyAscii = 0
+    End Select
+End Sub
+'When exit AUM text, if <5m, shows justification text box
+Private Sub TBaum_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    If TBaum.Value < 5 Then
+        LBaum2.Visible = True
+        TBaum2.Visible = True
+    Else
+        LBaum2.Visible = False
+        TBaum2.Visible = False
+        TBaum2.Value = ""
+    End If
+    If TBaum.Value <> "" Then
+        If Right(TBaum.Value, 1) = "M" Then
+        Else
+            TBaum.Value = TBaum.Value & "M"
+        End If
+    End If
+End Sub
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    'UnhookFormScroll
+End Sub
+Private Sub btnHelp_Click()
+    MsgBox "Please fill in all the blanks. " & vbNewLine & _
+    "Account Open Date can be selected with the calendar button." & vbNewLine & vbNewLine & _
+    "Optional fields are:" & vbNewLine & _
+    "1) Investment Experience" & vbNewLine & _
+    "2) Remarks" & vbNewLine & vbNewLine & _
+    "The system will automatically check if there is an existing tagging and will inform you after you click the submit button.", vbInformation, "DBS Bank - Live more, Bank less"
+    
+End Sub
