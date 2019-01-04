@@ -1,0 +1,117 @@
+
+Private Sub UserForm_Activate()
+    TBuser.Value = LCase(Environ("Username"))
+    dbPath = Sheets(1).Range("A3").Value
+End Sub
+'Code that passes SQL query into database and exports file. The normal code in the rest of the forms can't export, only by creating queryDef
+Private Sub btnLogin_Click()
+ Dim cnn As ADODB.Connection, rs As ADODB.Recordset, wk As Workbook, i As Long, fileName As String
+ dbPath = Sheets(1).Range("A3").Value
+    If TBpass.Value = "dbs2018" Then
+    
+        Set wk = Workbooks.Add
+    
+        If action = "export" Then
+            strSQL = "SELECT [SAccount] , [CollectionID], [HouseholdName], [RM], [IC], [ICType], [TaggedMonth], [UntaggedMonth] FROM IC_Tagging WHERE [CaseStatus] = 'Approved'"""
+            wk.Sheets(1).Range("A1").Value = "s_account"
+            wk.Sheets(1).Range("B1").Value = "collection_id"
+            wk.Sheets(1).Range("C1").Value = "household_name"
+            wk.Sheets(1).Range("D1").Value = "rm"
+            wk.Sheets(1).Range("E1").Value = "ic"
+            wk.Sheets(1).Range("F1").Value = "ic_type"
+            wk.Sheets(1).Range("G1").Value = "tagged_month"
+            wk.Sheets(1).Range("H1").Value = "untagged_month"
+            
+        ElseIf action = "bluesky" Then
+            strSQL = "SELECT [SAccount], [Segment], [CollectionID], [IC], [IC], [ICType], [IPO Tagged Month], [TaggedMonth],[UntaggedMonth] FROM IC_Tagging WHERE [CaseStatus] = 'Approved'"
+            wk.Sheets(1).Range("A1").Value = "s-account"
+            wk.Sheets(1).Range("B1").Value = "segment"
+            wk.Sheets(1).Range("C1").Value = "COLLECTION_ID"
+            wk.Sheets(1).Range("D1").Value = "IC_LAN"
+            wk.Sheets(1).Range("E1").Value = "IC_ONEBANKID"
+            wk.Sheets(1).Range("F1").Value = "IC_ROLE"
+            wk.Sheets(1).Range("G1").Value = "IPO_IND"
+            wk.Sheets(1).Range("H1").Value = "TAGGING_START_DT"
+            wk.Sheets(1).Range("J1").Value = "TAGGING_END_DT"
+            
+        End If
+        
+   Else
+        MsgBox "Incorrect credentials.", vbInformation, "DBS Bank - Live more, Bank less"
+        Unload Me
+        Exit Sub
+    End If
+    
+    Set cnn = New ADODB.Connection ' Initialise the collection class variable
+    Set rs = New ADODB.Recordset 'assign memory to the recordset
+    cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
+    rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
+    
+    wk.Sheets(1).Range("A2").CopyFromRecordset rs
+    wk.Sheets(1).Activate
+    
+    If action = "export" Then
+        Range("G:H").NumberFormat = "mmm-yy"
+    ElseIf action = "bluesky" Then
+        Range("C1000000").Select
+        Selection.End(xlUp).Select
+        lastR = ActiveCell.row
+        
+        Range("H:J").NumberFormat = "yyyy-mm-dd"
+        Range("J2").Formula = "=IF(I2<>"""",EOMONTH(I2,-1),date(9999,12,31))"
+        Range("J2:J" & lastR).FillDown
+        Range("J:J").Copy
+        Range("J:J").PasteSpecial xlPasteValues
+        
+        'Inserted Jerlyn's code here
+        'delete Seg = IBG, HHID = "P-", HHID = "TPC"
+        For i = lastR To 2 Step -1
+            If Range("B" & i) <> "IBG" And _
+                Left(Range("C" & i), 2) <> "P-" And _
+                Left(Range("C" & i), 3) <> "TPC" Then
+            Else
+                Range("A" & i).EntireRow.Delete
+            End If
+        Next i
+        
+        Range("A:B").EntireColumn.Delete
+        Range("G:G").EntireColumn.Delete
+        
+    End If
+    
+    If action = "export" Then
+        fileName = "IC Taggings List_"
+    ElseIf action = "bluesky" Then
+        fileName = "IC_Tagging (PB only) - "
+    End If
+    
+    strPath = Application.GetSaveAsFilename("C:\Users\" & Environ("Username") & "\Downloads\" & fileName & Format(Date, "yyyymmdd"), "CSV (*.csv), *.csv")
+    
+    i = 0
+    '(Cancel button + Duplicate file) handling
+    With CreateObject("Scripting.FileSystemObject")
+        If strPath <> "False" Then
+            If .FileExists(strPath) Then
+                Dim strFolder As String, strBaseName As String, strExt As String
+                strFolder = .GetParentFolderName(strPath)
+                strBaseName = .GetBaseName(strPath)
+                strExt = .GetExtensionName(strPath)
+                Do While .FileExists(strPath)
+                    i = i + 1
+                    strPath = .BuildPath(strFolder, strBaseName & " - " & i & "." & strExt)
+                Loop
+            End If
+            ActiveWorkbook.SaveAs strPath
+            MsgBox "Saved", vbInformation, "DBS Bank - Live more, Bank less"
+        End If
+        Unload Me
+        Exit Sub
+    End With
+            
+            
+            
+errorhandler:
+        MsgBox "Error"
+        Unload Me
+        Exit Sub
+End Sub
