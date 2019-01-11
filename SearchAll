@@ -1,244 +1,143 @@
-Sub UserForm_Activate()
+Private Sub UserForm_Activate()
     Dim cnn As ADODB.Connection, rs As ADODB.Recordset
+    Dim strSQL As String
     toFind = LCase(Environ("username"))
-    toFind = "kelvintansh"
+    toFind = "wewew"
     dbPath = Sheets(1).Range("A3").Value
-
-    If action = "check" Then
-        SearchTagging.width = 550
-        LBdata.width = 515
-        btnSearch.Left = 350
-        btnClear.Left = 350
-        btnReset.Left = 422
-        SearchTagging.Caption = "IC Tagging - Check Application Status"
-    ElseIf action = "retag" Then
-        SearchTagging.Caption = "IC Tagging - Retagging"
-    ElseIf action = "untag" Then
-        SearchTagging.Caption = "IC Tagging - Untagging"
-    End If
     
-    'On Error GoTo noRecordsfound
-    strSQL = "SELECT * FROM IC_Tagging WHERE ([ARM]='" & toFind & "') OR " & _
-                                            "([RM]='" & toFind & "') OR " & _
-                                            "([RM TL]='" & toFind & "' ) OR " & _
-                                            "([IC]='" & toFind & "' ) OR " & _
-                                            "([IC TL]='" & toFind & "' ) ORDER BY [FirstSubmitDate] DESC"
+    LBuser.Caption = "Searching pending applications for:   " & toFind
+    'Reset listbox
+    LBdata.ColumnWidths = "1;55;55;55;55;50;200;30"
+    LBdata.ColumnCount = 8
+    LBdata.AddItem "Case ID"
+    LBdata.List(LBdata.ListCount - 1, 1) = "RM"
+    LBdata.List(LBdata.ListCount - 1, 2) = "RM TL"
+    LBdata.List(LBdata.ListCount - 1, 3) = "IC"
+    LBdata.List(LBdata.ListCount - 1, 4) = "IC TL"
+    LBdata.List(LBdata.ListCount - 1, 5) = "HH ID"
+    LBdata.List(LBdata.ListCount - 1, 6) = "HH Name"
+    LBdata.List(LBdata.ListCount - 1, 7) = "Start Tag"
+   
+    On Error GoTo noRecordsfound
+    If toFind = "audraseah" Then
+        strSQL = "SELECT * FROM IC_Tagging WHERE [caseStatus]='PENDING IA HEAD'"
+    Else
+        strSQL = "SELECT * FROM IC_Tagging WHERE ([ARM]='" & toFind & "' AND [caseStatus] LIKE '%ARM') OR " & _
+                                            "([RM]='" & toFind & "' AND [caseStatus] LIKE '%RM') OR " & _
+                                            "([RM TL]='" & toFind & "' AND [caseStatus] LIKE '%RM TL') OR " & _
+                                            "([IC]='" & toFind & "' AND [caseStatus] LIKE '%IC') OR " & _
+                                            "([IC TL]='" & toFind & "' AND [caseStatus] LIKE '%IC TL') ORDER BY [FirstSubmitDate] DESC"
+    End If
     
     Set cnn = New ADODB.Connection ' Initialise the collection class variable
     Set rs = New ADODB.Recordset 'assign memory to the recordset
     cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
     rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
     
-    'Reset listbox
-    LBdata.Clear
+    rs.MoveFirst
     
-    'Display all
-    If action = "check" Then
-         LBdata.ColumnCount = 7
-        LBdata.ColumnWidths = "1;70;70;60;60;50;150"
-        LBdata.AddItem "Case ID"
-        LBdata.List(LBdata.ListCount - 1, 1) = "Request Type"
-        LBdata.List(LBdata.ListCount - 1, 2) = "Status"
-        LBdata.List(LBdata.ListCount - 1, 3) = "RM"
-        LBdata.List(LBdata.ListCount - 1, 4) = "IC"
-        LBdata.List(LBdata.ListCount - 1, 5) = "HH ID"
-        LBdata.List(LBdata.ListCount - 1, 6) = "HH Name"
-        
-        On Error Resume Next
-        With rs
-            Do Until rs.EOF
-                LBdata.AddItem .Fields(0).Value
-                LBdata.List(LBdata.ListCount - 1, 1) = .Fields("ApplicationType").Value
-                LBdata.List(LBdata.ListCount - 1, 2) = .Fields("CaseStatus").Value
-                LBdata.List(LBdata.ListCount - 1, 3) = .Fields("RM").Value
-                LBdata.List(LBdata.ListCount - 1, 4) = .Fields("IC").Value
-                LBdata.List(LBdata.ListCount - 1, 5) = .Fields("CollectionID").Value
-                LBdata.List(LBdata.ListCount - 1, 6) = .Fields("HouseholdName").Value
-                .MoveNext
-            Loop
-        End With
+    On Error Resume Next
+    With rs
+        Do Until .EOF
+            LBdata.AddItem .Fields(0).Value
+            LBdata.List(LBdata.ListCount - 1, 1) = .Fields("RM").Value
+            LBdata.List(LBdata.ListCount - 1, 2) = .Fields("RM TL").Value
+            LBdata.List(LBdata.ListCount - 1, 3) = .Fields("IC").Value
+            LBdata.List(LBdata.ListCount - 1, 4) = .Fields("IC TL").Value
+            LBdata.List(LBdata.ListCount - 1, 5) = .Fields("CollectionID").Value
+            LBdata.List(LBdata.ListCount - 1, 6) = .Fields("HouseholdName").Value
+            LBdata.List(LBdata.ListCount - 1, 7) = Format(.Fields("TaggedMonth").Value, "mmm-yy")
+            .MoveNext
+        Loop
+    End With
     
-    'Display all approved
-    ElseIf action = "retag" Or action = "untag" Then
-        LBdata.ColumnCount = 6
-        LBdata.ColumnWidths = "1;50;60;60;50;150"
-        LBdata.AddItem "Case ID"
-        LBdata.List(LBdata.ListCount - 1, 1) = "Start Tag"
-        LBdata.List(LBdata.ListCount - 1, 2) = "RM"
-        LBdata.List(LBdata.ListCount - 1, 3) = "IC"
-        LBdata.List(LBdata.ListCount - 1, 4) = "HH ID"
-        LBdata.List(LBdata.ListCount - 1, 5) = "HH Name"
-        
-        
-        On Error Resume Next
-        With rs
-            Do Until rs.EOF
-                 If .Fields(2).Value = "Approved" Then
-                    LBdata.AddItem .Fields(0).Value
-                    LBdata.List(LBdata.ListCount - 1, 1) = Format(.Fields("TaggedMonth").Value, "mmm-yy")
-                    LBdata.List(LBdata.ListCount - 1, 2) = .Fields("RM").Value
-                    LBdata.List(LBdata.ListCount - 1, 3) = .Fields("IC").Value
-                    LBdata.List(LBdata.ListCount - 1, 4) = .Fields("CollectionID").Value
-                    LBdata.List(LBdata.ListCount - 1, 5) = .Fields("HouseholdName").Value
-                    
-                End If
-                 .MoveNext
-            Loop
-        End With
-    End If
-    
-    If LBdata.ListCount = 1 Then
-           GoTo noRecordsfound
-    End If
-
+    rs.Close
+    cnn.Close
+    Set rs = Nothing
+    Set cnn = Nothing
     Exit Sub
-    
 noRecordsfound:
-        MsgBox "No records found.", vbInformation, "DBS Bank - Live more, Bank less"
-End Sub
-Private Sub btnClear_Click()
-    TBHHID.Value = ""
-    TBcaseID.Value = ""
-    TB1bank.Value = ""
+    MsgBox "You have no pending applications.", vbInformation, "DBS Bank - Live more, Bank less"
+    Unload Me
+    Exit Sub
 End Sub
 
-Private Sub btnReset_Click()
+Private Sub btnApprove_Click()
+    Dim msg As String
+    
+    If LBdata.Selected(0) = True Then
+        LBdata.Selected(0) = False
+    End If
+    
+    ans = MsgBox("This action cannot be undone. Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
+    If ans = vbNo Then
+        Exit Sub
+    End If
+                
+    For i = 1 To LBdata.ListCount - 1
+        If LBdata.Selected(i) Then
+            TBcaseID.Caption = LBdata.List(i)
+            msg = msg & TBcaseID.Caption & vbNewLine
+            action = "skip"
+            Call PendingApplications.btnApprove_Click
+        End If
+    Next i
+    action = ""
     LBdata.Clear
     Call UserForm_Activate
 End Sub
-Private Sub btnSearch_Click()
-LBdata.Clear
-'Prevents from viewing what this user is not supposed to view
-    On Error GoTo noRecordsfound
-    If TBcaseID.Value <> "" Then
-        strSQL = "SELECT * FROM IC_Tagging WHERE [CaseID]='" & TBcaseID.Value & "'"
-    ElseIf TBHHID.Value <> "" And TB1bank.Value <> "" Then
-        strSQL = "SELECT * FROM IC_Tagging WHERE (([ARM]='" & toFind & "' AND ([CollectionID] LIKE '%" & TBHHID.Value & "%' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM TL] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[IC TL] LIKE '%" & TB1bank.Value & "%'))) OR " & _
-                                                "([RM]='" & toFind & "' AND ([CollectionID] LIKE '%" & TBHHID.Value & "%' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM TL] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[IC TL] LIKE '%" & TB1bank.Value & "%'))) OR " & _
-                                                "([RM TL]='" & toFind & "' AND ([CollectionID] LIKE '%" & TBHHID.Value & "%' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM TL] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[IC TL] LIKE '%" & TB1bank.Value & "%'))) OR " & _
-                                                "([IC]='" & toFind & "' AND ([CollectionID] LIKE '%" & TBHHID.Value & "%' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM TL] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[IC TL] LIKE '%" & TB1bank.Value & "%'))) OR " & _
-                                                "([IC TL]='" & toFind & "' AND ([CollectionID] LIKE '%" & TBHHID.Value & "%' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[RM TL] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                                "[IC TL] LIKE '%" & TB1bank.Value & "%')))) ORDER BY [FirstSubmitDate] DESC"
-    ElseIf TBHHID.Value <> "" Then
-        strSQL = "SELECT * FROM IC_Tagging WHERE ([ARM]='" & toFind & "' AND [CollectionID] LIKE '%" & TBHHID.Value & "%') OR " & _
-                                                "([RM]='" & toFind & "' AND [CollectionID] LIKE '%" & TBHHID.Value & "%') OR " & _
-                                                "([RM TL]='" & toFind & "' AND [CollectionID] LIKE '%" & TBHHID.Value & "%') OR " & _
-                                                "([IC]='" & toFind & "' AND [CollectionID] LIKE '%" & TBHHID.Value & "%') OR " & _
-                                                "([IC TL]='" & toFind & "' AND [CollectionID] LIKE '%" & TBHHID.Value & "%') ORDER BY [FirstSubmitDate] DESC"
-    ElseIf TB1bank.Value <> "" Then
-         strSQL = "SELECT * FROM IC_Tagging WHERE ([ARM]='" & toFind & "' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[IC] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                "([RM]='" & toFind & "' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[IC] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                "([RM TL]='" & toFind & "' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[IC] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                "([IC]='" & toFind & "' AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[IC] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                "([IC TL]='" & toFind & "'  AND ([ARM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[RM] LIKE '%" & TB1bank.Value & "%' OR " & _
-                                                                            "[IC] LIKE '%" & TB1bank.Value & "%' )) ORDER BY [FirstSubmitDate] DESC"
-    
-    
-    End If
-    
-    Dim cnn As ADODB.Connection, rs As ADODB.Recordset
-    Set cnn = New ADODB.Connection ' Initialise the collection class variable
-    Set rs = New ADODB.Recordset 'assign memory to the recordset
-    cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
-    rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
-    '============================================================================================
-    'Display based on search
-    If action = "check" Then
-        'Reset listbox
-        LBdata.ColumnCount = 7
-        LBdata.ColumnWidths = "1;70;70;60;60;50;150"
-        LBdata.AddItem "Case ID"
-        LBdata.List(LBdata.ListCount - 1, 1) = "Request Type"
-        LBdata.List(LBdata.ListCount - 1, 2) = "Status"
-        LBdata.List(LBdata.ListCount - 1, 3) = "RM"
-        LBdata.List(LBdata.ListCount - 1, 4) = "IC"
-        LBdata.List(LBdata.ListCount - 1, 5) = "HH ID"
-        LBdata.List(LBdata.ListCount - 1, 6) = "HH Name"
-    
-        On Error Resume Next
-        With rs
-            Do Until rs.EOF
-                LBdata.AddItem .Fields(0).Value
-                LBdata.List(LBdata.ListCount - 1, 1) = .Fields("ApplicationType").Value
-                LBdata.List(LBdata.ListCount - 1, 2) = .Fields("CaseStatus").Value
-                LBdata.List(LBdata.ListCount - 1, 3) = .Fields("RM").Value
-                LBdata.List(LBdata.ListCount - 1, 4) = .Fields("IC").Value
-                LBdata.List(LBdata.ListCount - 1, 5) = .Fields("CollectionID").Value
-                LBdata.List(LBdata.ListCount - 1, 6) = .Fields("HouseholdName").Value
-                .MoveNext
-            Loop
-        End With
-        
-    ElseIf action = "retag" Or action = "untag" Then 'Same as search limitations above, but status must be approved
-        'Reset listbox
-        LBdata.ColumnCount = 6
-        LBdata.ColumnWidths = "1;50;60;60;50;150"
-        LBdata.AddItem "Case ID"
-        LBdata.List(LBdata.ListCount - 1, 1) = "Start Tag"
-        LBdata.List(LBdata.ListCount - 1, 2) = "RM"
-        LBdata.List(LBdata.ListCount - 1, 3) = "IC"
-        LBdata.List(LBdata.ListCount - 1, 4) = "HH ID"
-        LBdata.List(LBdata.ListCount - 1, 5) = "HH Name"
-        
-        On Error Resume Next
-        With rs
-            Do Until rs.EOF
-                'Display only everything that is "Approved"
-                If .Fields("CaseStatus").Value = "Approved" Then
-                    LBdata.AddItem .Fields(0).Value
-                    LBdata.List(LBdata.ListCount - 1, 1) = Format(.Fields("TaggedMonth").Value, "mmm-yy")
-                    LBdata.List(LBdata.ListCount - 1, 2) = .Fields("RM").Value
-                    LBdata.List(LBdata.ListCount - 1, 3) = .Fields("IC").Value
-                    LBdata.List(LBdata.ListCount - 1, 4) = .Fields("CollectionID").Value
-                    LBdata.List(LBdata.ListCount - 1, 5) = .Fields("HouseholdName").Value
-                End If
-                .MoveNext
-            Loop
-        End With
-        
-    Else
-        MsgBox "Error"
-    End If
-    
-    If LBdata.ListCount = 1 Then
-        GoTo noRecordsfound
-    End If
 
-    Exit Sub
-    
-noRecordsfound:
-        MsgBox "No records found.", vbInformation, "DBS Bank - Live more, Bank less"
-        Call UserForm_Activate
+Private Sub btnHelp_Click()
+    MsgBox "1) Quick Approve" & vbNewLine & _
+            "Select multiple cases and approve all at once." & vbNewLine & _
+            vbNewLine & _
+            "2) View Details" & vbNewLine & _
+            "Select only 1 case to view tagging details or to reject cases.", vbInformation, "DBS Bank - Live more, Bank less"
+            
 End Sub
+
 Private Sub btnSelect_Click()
+    Dim count As Integer
+    count = 0
+    
+     If LBdata.Selected(0) = True Then
+        LBdata.Selected(0) = False
+    End If
+    
     For i = 1 To LBdata.ListCount - 1
         If LBdata.Selected(i) Then
-            TBcaseID.Value = LBdata.List(i)
-            ShowDetails.Show
-            Unload Me
+            count = count + 1
+             TBcaseID.Caption = LBdata.List(i)
         End If
     Next i
+    
+    If TBcaseID.Caption = "<caseID>" Then
+        Exit Sub
+    End If
+    
+    If count > 1 Then
+        LBdata.Selected(LBdata.ListIndex) = False
+        MsgBox "Please select only 1 to view in detail.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+
+    PendingApplications.Show
+    LBdata.Clear
+    Call UserForm_Activate
 End Sub
+
+Private Sub btnToggle_Click()
+    If CheckBox1.Value = False Then
+        For i = 1 To LBdata.ListCount - 1
+            LBdata.Selected(i) = True
+        Next i
+        CheckBox1.Value = True
+    Else
+        For i = 1 To LBdata.ListCount - 1
+            LBdata.Selected(i) = False
+        Next i
+        CheckBox1.Value = False
+    End If
+End Sub
+
+
