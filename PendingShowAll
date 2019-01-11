@@ -2,22 +2,22 @@ Private Sub UserForm_Activate()
     Dim cnn As ADODB.Connection, rs As ADODB.Recordset
     Dim strSQL As String
     toFind = LCase(Environ("username"))
-    toFind = "kelvintansh"
+    toFind = "wewew"
     dbPath = Sheets(1).Range("A3").Value
     
     LBuser.Caption = "Searching pending applications for:   " & toFind
     'Reset listbox
-    LBdata.ColumnWidths = "1;70;70;55;55;55;55;50;200"
+    LBdata.ColumnWidths = "1;55;55;55;55;50;200;30"
+    LBdata.ColumnCount = 8
     LBdata.AddItem "Case ID"
-    LBdata.List(LBdata.ListCount - 1, 1) = "Request Type"
-    LBdata.List(LBdata.ListCount - 1, 2) = "Status"
-    LBdata.List(LBdata.ListCount - 1, 3) = "RM"
-    LBdata.List(LBdata.ListCount - 1, 4) = "RM TL"
-    LBdata.List(LBdata.ListCount - 1, 5) = "IC"
-    LBdata.List(LBdata.ListCount - 1, 6) = "IC TL"
-    LBdata.List(LBdata.ListCount - 1, 7) = "HH ID"
-    LBdata.List(LBdata.ListCount - 1, 8) = "HH Name"
-    
+    LBdata.List(LBdata.ListCount - 1, 1) = "RM"
+    LBdata.List(LBdata.ListCount - 1, 2) = "RM TL"
+    LBdata.List(LBdata.ListCount - 1, 3) = "IC"
+    LBdata.List(LBdata.ListCount - 1, 4) = "IC TL"
+    LBdata.List(LBdata.ListCount - 1, 5) = "HH ID"
+    LBdata.List(LBdata.ListCount - 1, 6) = "HH Name"
+    LBdata.List(LBdata.ListCount - 1, 7) = "Start Tag"
+   
     On Error GoTo noRecordsfound
     If toFind = "audraseah" Then
         strSQL = "SELECT * FROM IC_Tagging WHERE [caseStatus]='PENDING IA HEAD'"
@@ -40,14 +40,13 @@ Private Sub UserForm_Activate()
     With rs
         Do Until .EOF
             LBdata.AddItem .Fields(0).Value
-            LBdata.List(LBdata.ListCount - 1, 1) = .Fields("ApplicationType").Value
-            LBdata.List(LBdata.ListCount - 1, 2) = .Fields("CaseStatus").Value
-            LBdata.List(LBdata.ListCount - 1, 3) = .Fields("RM").Value
-            LBdata.List(LBdata.ListCount - 1, 4) = .Fields("RM TL").Value
-            LBdata.List(LBdata.ListCount - 1, 5) = .Fields("IC").Value
-            LBdata.List(LBdata.ListCount - 1, 6) = .Fields("IC TL").Value
-            LBdata.List(LBdata.ListCount - 1, 7) = .Fields("CollectionID").Value
-            LBdata.List(LBdata.ListCount - 1, 8) = .Fields("HouseholdName").Value
+            LBdata.List(LBdata.ListCount - 1, 1) = .Fields("RM").Value
+            LBdata.List(LBdata.ListCount - 1, 2) = .Fields("RM TL").Value
+            LBdata.List(LBdata.ListCount - 1, 3) = .Fields("IC").Value
+            LBdata.List(LBdata.ListCount - 1, 4) = .Fields("IC TL").Value
+            LBdata.List(LBdata.ListCount - 1, 5) = .Fields("CollectionID").Value
+            LBdata.List(LBdata.ListCount - 1, 6) = .Fields("HouseholdName").Value
+            LBdata.List(LBdata.ListCount - 1, 7) = Format(.Fields("TaggedMonth").Value, "mmm-yy")
             .MoveNext
         Loop
     End With
@@ -83,7 +82,9 @@ Private Sub btnApprove_Click()
             Call PendingApplications.btnApprove_Click
         End If
     Next i
-    Unload Me
+    action = ""
+    LBdata.Clear
+    Call UserForm_Activate
 End Sub
 
 Private Sub btnHelp_Click()
@@ -121,7 +122,8 @@ Private Sub btnSelect_Click()
     End If
 
     PendingApplications.Show
-    Unload Me
+    LBdata.Clear
+    Call UserForm_Activate
 End Sub
 
 Private Sub btnToggle_Click()
