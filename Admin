@@ -8,7 +8,8 @@ Private Sub btnLogin_Click()
  Dim cnn As ADODB.Connection, rs As ADODB.Recordset, wk As Workbook, i As Long, fileName As String
  dbPath = Sheets(1).Range("A3").Value
     If TBpass.Value = "dbs2018" Then
-    
+        Application.ScreenUpdating = False
+        Unload Me
         Set wk = Workbooks.Add
     
         If action = "export" Then
@@ -23,16 +24,17 @@ Private Sub btnLogin_Click()
             wk.Sheets(1).Range("H1").Value = "untagged_month"
             
         ElseIf action = "bluesky" Then
-            strSQL = "SELECT [SAccount], [Segment], [CollectionID], [IC], [IC], [ICType], [IPO Tagged Month], [TaggedMonth],[UntaggedMonth] FROM IC_Tagging WHERE [CaseStatus] = 'Approved'"
+            strSQL = "SELECT [SAccount], [Segment], [CollectionID], [IC], [IC], [ICType], [IPOTaggedMonth],[IPOUntaggedMonth], [TaggedMonth],[UntaggedMonth] FROM IC_Tagging WHERE [CaseStatus] = 'Approved'"
             wk.Sheets(1).Range("A1").Value = "s-account"
             wk.Sheets(1).Range("B1").Value = "segment"
             wk.Sheets(1).Range("C1").Value = "COLLECTION_ID"
             wk.Sheets(1).Range("D1").Value = "IC_LAN"
             wk.Sheets(1).Range("E1").Value = "IC_ONEBANKID"
             wk.Sheets(1).Range("F1").Value = "IC_ROLE"
-            wk.Sheets(1).Range("G1").Value = "IPO_IND"
-            wk.Sheets(1).Range("H1").Value = "TAGGING_START_DT"
-            wk.Sheets(1).Range("J1").Value = "TAGGING_END_DT"
+            wk.Sheets(1).Range("G1").Value = "IPO_START_DT"
+            wk.Sheets(1).Range("H1").Value = "IPO_END_DT"
+            wk.Sheets(1).Range("I1").Value = "TAGGING_START_DT"
+            wk.Sheets(1).Range("K1").Value = "TAGGING_END_DT"
             
         End If
         
@@ -57,13 +59,13 @@ Private Sub btnLogin_Click()
         Selection.End(xlUp).Select
         lastR = ActiveCell.row
         
-        Range("H:J").NumberFormat = "yyyy-mm-dd"
-        Range("J2").Formula = "=IF(I2<>"""",EOMONTH(I2,-1),date(9999,12,31))"
-        Range("J2:J" & lastR).FillDown
-        Range("J:J").Copy
-        Range("J:J").PasteSpecial xlPasteValues
+        Range("G:K").NumberFormat = "yyyy-mm-dd"
+        Range("K2").Formula = "=IF(J2<>"""",EOMONTH(J2,-1),date(9999,12,31))"
+        Range("K2:K" & lastR).FillDown
+        Range("K:K").Copy
+        Range("K:K").PasteSpecial xlPasteValues
         
-        'Inserted Jerlyn's code here
+        'Insert Jerlyn's code here
         'delete Seg = IBG, HHID = "P-", HHID = "TPC"
         For i = lastR To 2 Step -1
             If Range("B" & i) <> "IBG" And _
@@ -72,13 +74,44 @@ Private Sub btnLogin_Click()
             Else
                 Range("A" & i).EntireRow.Delete
             End If
+            
+            If Range("B" & i) = "TPC" And Range("F" & i) = "IC Equity" Then
+                Range("G" & i) = Range("I" & i)
+                Range("H" & i) = Range("K" & i)
+            End If
         Next i
+
+        Columns("G:G").Select
+        Selection.Insert Shift:=xlToRight, CopyOrigin:=xlFormatFromLeftOrAbove
+        Range("G1").Value = "IPO_IND"
         
-        Range("A:B").EntireColumn.Delete
-        Range("G:G").EntireColumn.Delete
+        Range("C1000000").Select
+        Selection.End(xlUp).Select
+        lastR = ActiveCell.row
         
-    End If
+        For i = lastR To 2 Step -1
+            If Range("H" & i) <> "" And Range("I" & i) = "" Then
+                Range("G" & i) = "Yes"
+            Else
+                Range("G" & i) = "No"
+            End If
+        Next i
     
+        Range("A:B").EntireColumn.Delete
+        Range("F:G").EntireColumn.Delete
+        Range("G1").EntireColumn.Delete
+        
+        Columns("C:C").Select
+        Selection.Insert Shift:=xlToRight, CopyOrigin:=xlFormatFromLeftOrAbove
+        Range("C1").Value = "IC_LAN"
+        
+        Range("C2").Formula = "=INDEX('[IC Tagging.xlsm]DB'!$I:$I,MATCH(B2,'[IC Tagging.xlsm]DB'!$J:$J,0))"
+        Range("C2:C" & lastR).FillDown
+        Range("C:C").Copy
+        Range("C:C").PasteSpecial xlPasteValues
+        Range("B1").EntireColumn.Delete
+    End If
+    '======================================
     If action = "export" Then
         fileName = "IC Taggings List_"
     ElseIf action = "bluesky" Then
@@ -104,14 +137,13 @@ Private Sub btnLogin_Click()
             ActiveWorkbook.SaveAs strPath
             MsgBox "Saved", vbInformation, "DBS Bank - Live more, Bank less"
         End If
-        Unload Me
-        Exit Sub
     End With
-            
-            
+    
+    Exit Sub
             
 errorhandler:
-        MsgBox "Error"
-        Unload Me
-        Exit Sub
+    MsgBox "Error"
+    Unload Me
+    Exit Sub
 End Sub
+
