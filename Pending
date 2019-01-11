@@ -10,11 +10,13 @@
 '       2) Untagging
 
 
-
 Private Sub UserForm_Activate()
     Application.ScreenUpdating = False
     'HookFormScroll Me
     Dim find As Range, submitDate, expireDate As Date
+    
+    LBicTL.Visible = False
+    TBicTL.Visible = False
     
     dbPath = Sheets(1).Range("A3").Value
     filePath = Sheets(1).Range("A4").Value
@@ -30,12 +32,24 @@ Private Sub UserForm_Activate()
         Me.Caption = "IC Tagging - Pending " & .Fields("ApplicationType").Value
         TBcaseID.Caption = .Fields("CaseID").Value
         TBstatus.Caption = .Fields("CaseStatus").Value
+        
+        If .Fields("CaseStatus").Value = "Pending IC" Then
+            LBicTL.Visible = True
+            TBicTL.Visible = True
+            TBicTL.Locked = False
+        End If
+        
+        If .Fields("CaseStatus").Value = "Pending IC TL" Or .Fields("CaseStatus").Value = "Pending IA Head" Then
+            LBicTL.Visible = True
+            TBicTL.Visible = True
+            TBicTL.Value = .Fields("IC TL").Value
+        End If
+        
         TBrm.Value = .Fields("RM").Value
         TBrmTL.Value = .Fields("RM TL").Value
         
         TBicType.Value = .Fields("ICType").Value
         TBic.Value = .Fields("IC").Value
-        TBicTL.Value = .Fields("IC TL").Value
 
         CBsegment.Value = .Fields("Segment").Value
         TBHHID.Value = .Fields("CollectionID").Value
@@ -80,7 +94,7 @@ Private Sub UserForm_Activate()
             .MoveFirst
             Do Until rs.EOF = True
                 'At current point of time,
-                If Date > .Fields("TaggedMonth").Value And (Date < .Fields("UntaggedMonth").Value Or .Fields("UntaggedMonth").Value = "") Then
+                If Date > .Fields("TaggedMonth").Value And (Date < .Fields("UntaggedMonth").Value Or IsNull(.Fields("UntaggedMonth").Value)) Then
                     If .Fields("ICType").Value = "IC All" Then
                         cBoxICALL.Value = True
                         cBoxICALL.ControlTipText = .Fields("IC").Value
@@ -99,7 +113,9 @@ Private Sub UserForm_Activate()
         End If
     End With
 End Sub
-
+Private Sub tbictl_KeyPress(ByVal KeyAscii As MSForms.ReturnInteger)
+    If (KeyAscii < 65 Or KeyAscii > 90) And (KeyAscii < 97 Or KeyAscii > 122) Then KeyAscii = 0
+End Sub
 Public Sub btnApprove_Click()
     Dim aOutlook, aEmail As Object, email As String
     Dim ans As VbMsgBoxResult, recipient As String
@@ -110,140 +126,152 @@ Public Sub btnApprove_Click()
     cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
     rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
     
-    With rs
+    
 '======================================================================================================
 '======================================================================================================
 '======================================================================================================
 '1)
-            'skip what
-            If action = "skip" Then
+    With rs
+        'For quick approve, skip msgBox
+        If action = "skip" Then
+        Else
+            ans = MsgBox("This action cannot be undone. Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
+            If ans = vbNo Then
+                Exit Sub
+            End If
+        End If
+        
+        'Update audit trail
+        .Fields("ApprovalRejectDate").Value = Evaluate("=NOW()")
+        
+        'RM
+        If .Fields("CaseStatus").Value = "Pending RM" Then
+            recipient = .Fields("RM TL").Value
+            .Fields("CaseStatus").Value = "Pending RM TL"
+        'RM TL
+        ElseIf .Fields("CaseStatus").Value = "Pending RM TL" Then
+            recipient = .Fields("IC").Value
+            .Fields("CaseStatus").Value = "Pending IC"
+        'IC
+        ElseIf .Fields("CaseStatus").Value = "Pending IC" Then
+            If TBicTL.Value = "" Then
+                MsgBox "Please input IC TL 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
+                LBicTL.ForeColor = RGB(255, 0, 0)
+                Exit Sub
+            End If
+            recipient = TBicTL.Value
+            .Fields("IC TL").Value = TBicTL.Value
+            .Fields("CaseStatus").Value = "Pending IC TL"
+        'IC TL
+        ElseIf .Fields("CaseStatus").Value = "Pending IC TL" Then
+        
+            'If form submission date is more than 1 month, later than 15th.
+            'If need to backdate, form will pass through audra
+            'Scenario 1
+                'Effective Tagging Month = Dec '18
+                'Form completion date = 11th Dec '18
+                'IC TL approve = complete alr
+            'Scenario 2
+                'Effective Tagging Month = Nov '18
+                'Form completion date = 17th Dec '18
+                'IC TL approve = not yet complete, need backdate, sends to Audra
+                
+            submitDate = DateSerial(Year(.Fields("ApprovalRejectDate").Value), month(.Fields("ApprovalRejectDate").Value), Day(.Fields("ApprovalRejectDate").Value))
+            expireDate = DateSerial(Year(.Fields("TaggedMonth").Value), month(.Fields("TaggedMonth").Value) + 1, 15)
+            If submitDate > expireDate Then
+                recipient = "audraseah"
+                .Fields("CaseStatus").Value = "Pending IA Head"
             Else
-                ans = MsgBox("This action cannot be undone. Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
-                If ans = vbNo Then
-                    Exit Sub
-                End If
+                GoTo Approved
             End If
             
-            .Fields("ApprovalRejectDate").Value = Evaluate("=NOW()")
-            
-            'RM
-            If .Fields("CaseStatus").Value = "Pending RM" Then
-                recipient = .Fields("RM TL").Value
-                .Fields("CaseStatus").Value = "Pending RM TL"
-            'RM TL
-            ElseIf .Fields("CaseStatus").Value = "Pending RM TL" Then
-                recipient = .Fields("IC").Value
-                .Fields("CaseStatus").Value = "Pending IC"
-            'IC
-            ElseIf .Fields("CaseStatus").Value = "Pending IC" Then
-                recipient = .Fields("IC TL").Value
-                .Fields("CaseStatus").Value = "Pending IC TL"
-            'IC TL
-            ElseIf .Fields("CaseStatus").Value = "Pending IC TL" Then
-            
-                'If form submission date is more than 1 month, later than 15th.
-                'If need to backdate, form will pass through audra
-                'Scenario 1
-                    'Effective Tagging Month = Dec '18
-                    'Form completion date = 11th Dec '18
-                    'IC TL approve = complete alr
-                'Scenario 2
-                    'Effective Tagging Month = Nov '18
-                    'Form completion date = 17th Dec '18
-                    'IC TL approve = not yet complete, need backdate, sends to Audra
-                    
-                submitDate = DateSerial(Year(.Fields("ApprovalRejectDate").Value), month(.Fields("ApprovalRejectDate").Value), Day(.Fields("ApprovalRejectDate").Value))
-                expireDate = DateSerial(Year(.Fields("TaggedMonth").Value), month(.Fields("TaggedMonth").Value) + 1, 15)
-                If submitDate > expireDate Then
-                    recipient = "audraseah"
-                    .Fields("CaseStatus").Value = "Pending IA Head"
-                Else
-                    GoTo Approved
-                End If
-                
-            'IA Head
-            ElseIf .Fields("CaseStatus").Value = "Pending IA Head" Then
+        'IA Head
+        ElseIf .Fields("CaseStatus").Value = "Pending IA Head" Then
             
 Approved:
-            recipient = "Admin"
-            .Fields("CaseStatus").Value = "Approved"
-
-            '======================================================================
-            'For retagging cases, extract old case id, which is stored in ForRetagging field, and untag it
-            If .Fields("ApplicationType").Value = "Retagging" Then
-                endTag = .Fields("TaggedMonth").Value
-                action = "retag"
-                cid = .Fields("ForRetagging").Value
-                Call ShowDetails.btnUntag_Click
+                recipient = "Admin"
+                .Fields("CaseStatus").Value = "Approved"
+    
+                '======================================================================
+                'For retagging cases, extract old case id, which is stored in ForRetagging field, and untag it
                 cid = ""
-            End If
-            '=====================================================================
+                If .Fields("ApplicationType").Value = "Retagging" Then
+                    endTag = .Fields("TaggedMonth").Value 'retagged's effective tagging month, which is also the old tagging's untagged month
+                    action = "retag"
+                    cid = .Fields("ForRetagging").Value
+                    Call ShowDetails.btnUntag_Click 'Untagging function untags the old case's IPO already
+                    
+                End If
+                '======================================================================
+                'IPO tagging
+                'For cases that replace the other IC type for IPO revenue,
+
+                '======================================================================
  'Continue here for not-yet-approved cases, approved cases too
-            
-            ' Send Email
-            Set aOutlook = CreateObject("Outlook.Application")
-            Set aEmail = aOutlook.CreateItem(0)
-            
-            If .Fields("CaseStatus").Value = "Approved" Then
-                'Send email
-                aEmail.Subject = "[APPROVED] IC Tagging Request"
-                aEmail.To = .Fields("RM").Value & "@dbs.com; " & .Fields("IC").Value & "@dbs.com"
-                aEmail.CC = Sheets("AIC").Range("B2").Value & "; " & _
-                                    Sheets("AIC").Range("C2").Value & "; " & _
-                                    Sheets("AIC").Range("D2").Value & "; " & _
-                                    Sheets("AIC").Range("E2").Value
-                aEmail.htmlBody = "Hello RM & IC," & "<br>" & _
-                "<br>" & _
-               "<table border=""1"" cellpadding=""1"" cellspacing=""1"" style=""width: 500px;"">" & _
-                "<tbody><tr><td>Collection ID</td>" & _
-                    "<td>RM 1Bank</td>" & _
-                    "<td>IC 1Bank</td>" & _
-                    "<td>Tag Start Date</td></tr>" & _
-                "<tr><td><font color=red>" & .Fields("CollectionID").Value & "</font></td>" & _
-                    "<td><font color=red>" & .Fields("RM").Value & "</font></td>" & _
-                    "<td><font color=red>" & .Fields("IC").Value & "</font></td>" & _
-                    "<td><font color=red>" & Format(.Fields("TaggedMonth").Value, "mmm-yy") & "</font></td></tr></tbody>" & _
-                    "</table>" & "<br>" & _
-                "has been approved by all parties." & "<br>" & _
-                "<br>" & _
-                " - Admin" & "<br>" & _
-                "This is a system generated email, please do not reply."
-                aEmail.display
-                
-                MsgBox "You have approved the tagging of " & .Fields("IC").Value & " to Collection ID: " & .Fields("CollectionID").Value & vbNewLine & _
-                vbNewLine & _
-                "An email has been sent to the RM and IC as a notice.", vbInformation, "DBS Bank - Live more, Bank less"
-            
-            Else
-                'Send email
-                aEmail.To = recipient & "@dbs.com; "
-                aEmail.Subject = "[" & UCase(.Fields("CaseStatus").Value) & "] IC Tagging Request"
-                aEmail.htmlBody = "Hello " & recipient & "," & "<br>" & _
-                "<br>" & _
-                "<table border=""1"" cellpadding=""1"" cellspacing=""1"" style=""width: 500px;"">" & _
-                "<tbody><tr><td>Collection ID</td>" & _
-                    "<td>RM 1Bank</td>" & _
-                    "<td>IC 1Bank</td>" & _
-                    "<td>Tag Start Date</td></tr>" & _
-                "<tr><td><font color=red>" & .Fields("CollectionID").Value & "</font></td>" & _
-                    "<td><font color=red>" & .Fields("RM").Value & "</font></td>" & _
-                    "<td><font color=red>" & .Fields("IC").Value & "</font></td>" & _
-                    "<td><font color=red>" & Format(.Fields("TaggedMonth").Value, "mmm-yy") & "</font></td></tr></tbody>" & _
-                    "</table>" & "<br>" & _
-                "You can approve it in the file here: " & "<br>" & _
-                "<a href=""file://" & filePath & """>Press ctrl & click on me!</a>" & "<br>" & _
-                "<br>" & _
-                "- Admin" & "<br>" & _
-                "This is a system generated email, please do not reply."
-                aEmail.display
-                
-                MsgBox "You have approved the tagging of " & .Fields("IC").Value & " to Collection ID: " & .Fields("CollectionID").Value & vbNewLine & _
-                vbNewLine & _
-                "An email has been sent to the next person for approval.", vbInformation, "DBS Bank - Live more, Bank less"
             End If
+                ' Send Email
+                Set aOutlook = CreateObject("Outlook.Application")
+                Set aEmail = aOutlook.CreateItem(0)
+                
+                If .Fields("CaseStatus").Value = "Approved" Then
+                    'Send email
+                    aEmail.Subject = "[APPROVED] IC Tagging Request"
+                    aEmail.To = .Fields("RM").Value & "@dbs.com; " & .Fields("IC").Value & "@dbs.com"
+                    aEmail.CC = Sheets("AIC").Range("B2").Value & "; " & _
+                                        Sheets("AIC").Range("C2").Value & "; " & _
+                                        Sheets("AIC").Range("D2").Value & "; " & _
+                                        Sheets("AIC").Range("E2").Value
+                    aEmail.htmlBody = "Hello RM & IC," & "<br>" & _
+                    "<br>" & _
+                   "<table border=""1"" cellpadding=""1"" cellspacing=""1"" style=""width: 500px;"">" & _
+                    "<tbody><tr><td>Collection ID</td>" & _
+                        "<td>RM 1Bank</td>" & _
+                        "<td>IC 1Bank</td>" & _
+                        "<td>Tag Start Date</td></tr>" & _
+                    "<tr><td><font color=red>" & .Fields("CollectionID").Value & "</font></td>" & _
+                        "<td><font color=red>" & .Fields("RM").Value & "</font></td>" & _
+                        "<td><font color=red>" & .Fields("IC").Value & "</font></td>" & _
+                        "<td><font color=red>" & Format(.Fields("TaggedMonth").Value, "mmm-yy") & "</font></td></tr></tbody>" & _
+                        "</table>" & "<br>" & _
+                    "has been approved by all parties." & "<br>" & _
+                    "<br>" & _
+                    " - Admin" & "<br>" & _
+                    "This is a system generated email, please do not reply."
+                    aEmail.display
+                    
+                    MsgBox "You have approved the tagging of " & .Fields("IC").Value & " to Collection ID: " & .Fields("CollectionID").Value & vbNewLine & _
+                    vbNewLine & _
+                    "An email has been sent to the RM and IC as a notice.", vbInformation, "DBS Bank - Live more, Bank less"
+                
+                Else
+                    'Send email
+                    aEmail.To = recipient & "@dbs.com; "
+                    aEmail.Subject = "[" & UCase(.Fields("CaseStatus").Value) & "] IC Tagging Request"
+                    aEmail.htmlBody = "Hello " & recipient & "," & "<br>" & _
+                    "<br>" & _
+                    "<table border=""1"" cellpadding=""1"" cellspacing=""1"" style=""width: 500px;"">" & _
+                    "<tbody><tr><td>Collection ID</td>" & _
+                        "<td>RM 1Bank</td>" & _
+                        "<td>IC 1Bank</td>" & _
+                        "<td>Tag Start Date</td></tr>" & _
+                    "<tr><td><font color=red>" & .Fields("CollectionID").Value & "</font></td>" & _
+                        "<td><font color=red>" & .Fields("RM").Value & "</font></td>" & _
+                        "<td><font color=red>" & .Fields("IC").Value & "</font></td>" & _
+                        "<td><font color=red>" & Format(.Fields("TaggedMonth").Value, "mmm-yy") & "</font></td></tr></tbody>" & _
+                        "</table>" & "<br>" & _
+                    "You can approve it in the file here: " & "<br>" & _
+                    "<a href=""file://" & filePath & """>Click on me!</a>" & "<br>" & _
+                    "<br>" & _
+                    "- Admin" & "<br>" & _
+                    "This is a system generated email, please do not reply."
+                    aEmail.display
+                    
+                    MsgBox "You have approved the tagging of " & .Fields("IC").Value & " to Collection ID: " & .Fields("CollectionID").Value & vbNewLine & _
+                    vbNewLine & _
+                    "An email has been sent to the next person for approval.", vbInformation, "DBS Bank - Live more, Bank less"
+                End If
             .Update
     End With
-    
     Unload Me
     Call UpdatePending
 End Sub
@@ -291,9 +319,11 @@ Private Sub btnReject_Click()
             "<br>" & _
             "<table border=""1"" cellpadding=""1"" cellspacing=""1"" style=""width: 500px;"">" & _
                 "<tbody><tr><td>Collection ID</td>" & _
+                    "<td>RM 1Bank</td>" & _
                     "<td>IC 1Bank</td>" & _
                     "<td>Tag Start Date</td></tr>" & _
                 "<tr><td><font color=red>" & .Fields("CollectionID").Value & "</font></td>" & _
+                    "<td><font color=red>" & .Fields("RM").Value & "</font></td>" & _
                     "<td><font color=red>" & .Fields("IC").Value & "</font></td>" & _
                     "<td><font color=red>" & Format(.Fields("TaggedMonth").Value, "mmm-yy") & "</font></td></tr></tbody>" & _
                     "</table>" & "<br>" & _
