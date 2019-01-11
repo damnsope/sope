@@ -5,7 +5,7 @@ Private Sub UserForm_Activate()
     filePath = Sheets(1).Range("A4").Value
 
     Me.ScrollTop = 0
-    caseID = SearchTagging.TBcaseID.Value
+    caseID = ShowAll.TBcaseID.Value
     strSQL = "SELECT * FROM IC_Tagging WHERE [CaseID]='" & caseID & "'"
     
     Set cnn = New ADODB.Connection ' Initialise the collection class variable
@@ -18,6 +18,8 @@ Private Sub UserForm_Activate()
         'Edit form interface based on action
         ShowDetails.Caption = "IC Tagging - Check current status"
         ShowDetails.height = 495
+        LBaum1.Visible = False
+        TBaum2.Visible = False
         L1.Visible = False
         L2.Visible = False
         btnRetag.Visible = False
@@ -47,9 +49,11 @@ Private Sub UserForm_Activate()
         ElseIf action = "untag" Then
             ShowDetails.Caption = "IC Tagging - Untagging"
             ShowDetails.ScrollBars = fmScrollBarsVertical
-            ShowDetails.ScrollHeight = 535
+            ShowDetails.ScrollHeight = 565
             L1.Visible = True
             L2.Visible = True
+            LBstartReTag.Visible = True
+            CBstartReTag.Visible = True
             btnUntag.Visible = True
             
             
@@ -73,10 +77,9 @@ Private Sub UserForm_Activate()
         TBnw.Value = .Fields("NetWorth").Value
         TBaum.Value = .Fields("AUM").Value
         
-        If .Fields("JustificationForAUM").Value = "" Then
-            LBaum1.Visible = False
-            TBaum2.Visible = False
-        Else
+        If Not IsNull(.Fields("JustificationForAUM").Value) Then
+            LBaum1.Visible = True
+            TBaum2.Visible = True
             TBaum2.Value = .Fields("JustificationForAUM").Value
         End If
             
@@ -134,7 +137,7 @@ Private Sub btnRetag_Click()
         invexp, startTag, revBackdate, remarks As String
     Dim rank, rejector, appType, icType, submitDate, appRejDate, nextToApprove, msg, msgHTML As String
     
-    caseID = SearchTagging.TBcaseID.Value
+    caseID = ShowAll.TBcaseID.Value
     
     'Determine untagger and RM/ARM
     rank = RMoptBtn
@@ -154,6 +157,19 @@ Private Sub btnRetag_Click()
         MsgBox "Please input the new IC TL's 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
         Exit Sub
     End If
+    
+    'Read and load the original tagging date, and effective retagging date
+    xYear = CInt(Split(CBstartTag.Value, "-")(1))
+    xMonth = month("01/" & Format(Split(CBstartTag.Value, "-")(0), "mmmm"))
+    startTag = DateSerial(xYear, xMonth, 1)
+    yYear = CInt(Split(CBstartReTag.Value, "-")(1))
+    yMonth = month("01/" & Format(Split(CBstartReTag.Value, "-")(0), "mmmm"))
+    startretag = DateSerial(yYear, yMonth, 1)
+    
+    If startretag <= startTag Then
+        MsgBox "Please check that the effective retagging month is later than the original effective tagging month.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
 
     ans = MsgBox("Please check that the retagged IC has the same role as the current IC." & vbNewLine & _
     vbNewLine & _
@@ -164,6 +180,7 @@ Private Sub btnRetag_Click()
     
 '==========================================================================================================
     'Get current tagging's details
+    'Validation is included when caseID is pulled
     strSQL = "SELECT * FROM IC_Tagging WHERE [CaseID]='" & caseID & "'"
     Set cnn = New ADODB.Connection ' Initialise the collection class variable
     Set rs = New ADODB.Recordset 'assign memory to the recordset
@@ -173,14 +190,16 @@ Private Sub btnRetag_Click()
     With rs
          'Pull all values, store in variables
          oldCID = .Fields("CaseID").Value
-       
         icType = .Fields("ICType").Value
-        
         arm = IIf(IsNull(.Fields("ARM").Value), "", .Fields("ARM").Value)
         rm = .Fields("RM").Value
         rmTL = .Fields("RM TL").Value
         oldic = .Fields("IC").Value
         ic = TBnewIC.Value
+        If ic = oldic Then
+            MsgBox "You are retagging the same IC. Please check again.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
         icTL = TBnewICTL.Value
         segment = .Fields("Segment").Value
         hhid = .Fields("CollectionID").Value
@@ -193,30 +212,50 @@ Private Sub btnRetag_Click()
         opening = .Fields("AccOpenDate").Value
         riskPF = .Fields("RiskPortfolio").Value
         invexp = IIf(IsNull(.Fields("InvestmentExperience").Value), "", .Fields("InvestmentExperience").Value)
-        
-         iYear = CInt(Split(CBstartReTag.Value, "-")(1))
-        iMonth = month("01/" & Format(Split(CBstartReTag.Value, "-")(0), "mmmm"))
-        startTag = DateSerial(iYear, iMonth, 1)
-        
         remarks = IIf(IsNull(.Fields("Remarks").Value), "", .Fields("Remarks").Value)
-        ipo = IIf(IsNull(.Fields("IPO").Value), "", .Fields("IPO").Value)
         
-        'Validation - check if possible to untag
-        conca = hhid & .Fields("IC").Value
-        
-         Sheets("IC_Tagging").Activate
-        lastR = Cells(Rows.count, "A").End(xlUp).row
-        Range("H2").Formula = "=CONCATENATE(A2,C2)"
-        Range("H2:H" & lastR).FillDown
-        Set findC = Range("H2:H" & lastR).find(conca, , xlValues, xlWhole)
-        If Not findC Is Nothing Then
+        If IsNull(.Fields("IPOTaggedMonth").Value) Then
+            ipo = False
         Else
-            MsgBox "Record not found, unable to untag. Please contact the AICs for help.", vbInformation, "DBS Bank - Live more, Bank less"
-            Unload Me
-            Exit Sub
+            ipo = True
         End If
+        
+        .Fields("CaseStatus").Value = "Pending retagging"
+        .Fields("ApprovalRejectDate").Value = Evaluate("=NOW()")
+        .Update
     End With
-
+    '===============================================================================
+    'IPO Validation
+    If icType = "IC FX" Then
+    Else
+        strSQL = "SELECT * FROM IC_Tagging WHERE [CollectionID] = '" & hhid & "'"
+        Set cnn = New ADODB.Connection ' Initialise the collection class variable
+        Set rs = New ADODB.Recordset 'assign memory to the recordset
+        cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
+        rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
+        
+        '1) Check if IC type currently tagged
+        'curerntly ic eq but says to ic all which is wrong
+        With rs
+            If Not (rs.EOF And rs.BOF) Then
+                .MoveFirst
+                Do Until rs.EOF = True
+                    If Date >= .Fields("TaggedMonth").Value And (Date < .Fields("UntaggedMonth").Value Or IsNull(.Fields("UntaggedMonth").Value)) And _
+                                    .Fields("ICType").Value <> icType And _
+                                    .Fields("ICType").Value <> "IC FX" Then
+                        ans = MsgBox("IPO Revenue is currently allocated to the " & .Fields("ICType").Value & "." & vbNewLine & vbNewLine & _
+                                    "Please select: " & vbNewLine & "1) 'Yes' to continue" & vbNewLine & "2) 'No' to allocate IPO Revenue to the " & icType, vbYesNo, "DBS Bank - Live more, Bank less")
+                    
+                         If ans = vbNo Then
+                            .Fields("IPOTaggedMonth").Value = startretag
+                        End If
+                    End If
+                    .MoveNext
+                Loop
+            End If
+        End With
+    End If
+    
 '==========================================================================================================
     'New tag
     strSQL = "SELECT * FROM IC_Tagging"
@@ -262,10 +301,12 @@ Private Sub btnRetag_Click()
         .Fields("AccOpenDate").Value = opening
         .Fields("RiskPortfolio").Value = riskPF
         .Fields("InvestmentExperience").Value = invexp
-        .Fields("TaggedMonth").Value = startTag
+        .Fields("TaggedMonth").Value = startretag
         .Fields("Remarks").Value = remarks
-        .Fields("IPO").Value = ipo
         .Fields("ForRetagging").Value = oldCID
+        If ipo = True Then
+            .Fields("IPOTaggedMonth").Value = startretag
+        End If
         .Update
         
         ' Send Email
@@ -286,7 +327,7 @@ Private Sub btnRetag_Click()
                 "<td><font color=red>" & Format(startTag, "mmm-yy") & "</font></td></tr></tbody>" & _
                 "</table>" & "<br>" & _
         "You can approve it in the file here: " & "<br>" & _
-        "<a href=""file://" & filePath & """>Press ctrl & click on me</a>" & "<br>" & _
+        "<a href=""file://" & filePath & """>Click on me</a>" & "<br>" & _
         "<br>" & _
         " - Admin" & "<br>" & _
         "This is a computer generated email, please do not reply to this email."
@@ -318,72 +359,71 @@ Public Sub btnUntag_Click()
     
     Dim aOutlook, aEmail As Object, email As String
     Dim hhid, ic As String, findC As Range
-
+    
+    'Read effective UNTAG month
+    If CBstartReTag.Value = "" Then
+        MsgBox "Please input the effective untagging month.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    
+    iYear = CInt(Split(CBstartTag.Value, "-")(1))
+    iMonth = month("01/" & Format(Split(CBstartTag.Value, "-")(0), "mmmm"))
+    startTag = DateSerial(iYear, iMonth, 1)
+    
+    iYear = CInt(Split(CBstartReTag.Value, "-")(1))
+    iMonth = month("01/" & Format(Split(CBstartReTag.Value, "-")(0), "mmmm"))
+    untag = DateSerial(iYear, iMonth, 1)
+    
+    If untag < startTag Then
+        MsgBox "Please select a valid untagging month.", vbInformation, "DBS Bank - Live more, Bank less"
+        Exit Sub
+    End If
+    
     If action = "retag" Then
         'In a retagging case, untag the original case
         caseID = cid
     Else
-        caseID = SearchTagging.TBcaseID.Value
+        caseID = ShowAll.TBcaseID.Value
         ans = MsgBox("This action cannot be undone. Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
         If ans = vbNo Then
             Exit Sub
         End If
     End If
-    
+    '===============================================================
     strSQL = "SELECT * FROM IC_Tagging WHERE [CaseID]='" & caseID & "'"
-    
     Set cnn = New ADODB.Connection ' Initialise the collection class variable
     Set rs = New ADODB.Recordset 'assign memory to the recordset
     cnn.Open "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & dbPath & ";Jet OLEDB:Database Password=dbs2018;"
     rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
     
     With rs
-        Application.ScreenUpdating = False
-        'Update RDMS
-        ' Untag middle of the month, TAGGING_END_DT = last day of current month
-        On Error GoTo emptyField 'most probably ic field is blank
-        Sheets("IC_Tagging").Activate
-        hhid = .Fields("CollectionID").Value
-        ic = .Fields("IC").Value
-        conca = hhid & ic
-        lastR = Cells(Rows.count, "A").End(xlUp).row
-        On Error GoTo 0
         
-        Sheets("IC_Tagging").Activate
-        Range("H2").Formula = "=CONCATENATE(A2,C2)"
-        Range("H2:H" & lastR).FillDown
-        
-        Set findC = Range("H2:H" & lastR).find(conca, , xlValues, xlWhole)
-        If Not findC Is Nothing Then
-            'Range("G" & findC.row).value SHOULD BE 31/12/9999
-            If Range("G" & findC.row).Value = "31/12/9999" Then
-                If cid <> "" Then
-                    Range("G" & findC.row).Value = DateAdd("d", -1, endTag)
-                Else
-                    Range("G" & findC.row).Formula = "=EOMONTH(NOW(),0)"
-                End If
-                Range("G" & findC.row).Copy
-                Range("G" & findC.row).PasteSpecial xlPasteValues
-                Range("A" & findC.row & ":G" & findC.row).EntireRow.Interior.Color = RGB(218, 238, 243)
-            Else
-                MsgBox "Collection ID is already untagged. Please contact the AICs for help.", vbInformation, "DBS Bank - Live more, Bank less"
-                Unload Me
-                Exit Sub
-            End If
-        Else
-           GoTo emptyField
-        End If
-        Range("H1").EntireColumn.Delete
-        Sheets(1).Activate
-        '===========================================
-        'if no error, update fields
         .Fields("CaseStatus").Value = "Untagged"
         .Fields("ApprovalRejectDate").Value = Evaluate("=NOW()")
+               
+        'cid = an old form, need to untag now bc a retagging is approved
         If cid <> "" Then
             .Fields("UntaggedMonth").Value = endTag
+            If Not IsNull(.Fields("IPOTaggedMonth")) Then
+                .Fields("IPOUntaggedMonth").Value = endTag
+            End If
+            
+            If DateDiff("m", .Fields("TaggedMonth").Value, .Fields("UntaggedMonth").Value) < 6 Then
+                .Fields("TaggedLessThan6Months").Value = "Yes"
+            End If
+            
+        'if just a normal untagging
         Else
-            .Fields("UntaggedMonth").Value = DateSerial(Year(Date), month(Date) + 1, 1)
+                .Fields("UntaggedMonth").Value = untag
+                If Not IsNull(.Fields("IPOTaggedMonth")) Then
+                    .Fields("IPOUntaggedMonth").Value = untag
+                End If
+                
+                If DateDiff("m", .Fields("TaggedMonth").Value, .Fields("UntaggedMonth").Value) < 6 Then
+                    .Fields("TaggedLessThan6Months").Value = "Yes"
+                End If
         End If
+
         .Update
         '===============================================
         ' Send Email
