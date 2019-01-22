@@ -1,4 +1,15 @@
 Public RMoptBtn, action, selectedRank, dbPath, filePath, toFind, cid, reject As String, endTag As Date
+Public colLabelEvent As Collection 'Collection of labels for event handling
+Public colLabels As Collection     'Collection of the date labels
+Public bSecondDate As Boolean      'True if finding second date
+Public sActiveDay As String        'Last day selected
+Public lDays As Long               'Number of days in month
+Public lFirstDay As Long           'Day selected, e.g. 19th
+Public lStartPos As Long
+Public lSelMonth As Long           'The selected month
+Public lSelYear As Long            'The selected year
+Public lSelMonth1 As Long          'Used to check if same date is selected twice
+Public lSelYear1 As Long           'Used to check if same date is selected twice
 
 'For userform mousewheel scrolling
 'Option Explicit
@@ -123,11 +134,14 @@ Public RMoptBtn, action, selectedRank, dbPath, filePath, toFind, cid, reject As 
 Public Sub UpdatePending()
     Dim cnn As ADODB.Connection, rs As ADODB.Recordset
     Dim toFind, strSQL As String
+    
+    Sheets(1).Unprotect "dbs"
+    Sheets(1).Activate
+    
     dbPath = Sheets(1).Range("A3").Value
     filePath = Sheets(1).Range("A4").Value
     toFind = LCase(Environ("username"))
-    Sheets(1).Unprotect "dbs"
-    Sheets(1).Activate
+    
     
     'Count pending applications
     strSQL = "SELECT * FROM IC_Tagging WHERE ([ARM]='" & toFind & "' AND [caseStatus] LIKE '%ARM') OR " & _
