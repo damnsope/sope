@@ -1,35 +1,35 @@
 Private Sub btnSubmit1_Click()
     
     'Check ARM or RM
-    If OptionButton1.Value = False And OptionButton2.Value = False Then
+    If optbtnARM.Value = False And optbtnRM.Value = False Then
         MsgBox "Please select either ARM or RM.", vbInformation, "DBS Bank - Live more, Bank less"
         Exit Sub
-    
-    ElseIf OptionButton1 = True Then
+        
+    ElseIf optbtnARM = True Then
         RMoptBtn = "ARM"
         
-    ElseIf OptionButton2 = True Then
+    ElseIf optbtnRM = True Then
         RMoptBtn = "RM"
     End If
      
      
     If action = "retag" Then
-        SearchTagging.Show
+        ShowAll.Show
     Else
     'Check IC type
-        If CBOXicGen = False And cBoxICEQ = False And cBoxICFX = False Then
+        If cboxPBgen = False And cboxTPCgen = False And cboxEQ = False And cboxFX = False Then
             MsgBox "Please select at least 1 IC type.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        ElseIf cboxPBgen = True And cboxTPCgen = True Then
+            MsgBox "Please choose only 1 IC General type that corresponds to the client's segment.", vbInformation, "DBS Bank - Live more, Bank less"
             Exit Sub
         End If
     
-        NewApplication.Show
+        NewApplication2.Show
     End If
 
     Unload Me
-    
-   
 End Sub
-
 
 Private Sub UserForm_Activate()
     If action = "retag" Then
