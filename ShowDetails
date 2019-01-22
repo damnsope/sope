@@ -27,9 +27,7 @@ Private Sub UserForm_Activate()
         LBstartReTag.Visible = False
         CBstartReTag.Visible = False
         LBnewIC.Visible = False
-        LBnewICTL.Visible = False
         TBnewIC.Visible = False
-        TBnewICTL.Visible = False
         
         'If checking only do nth, but...
         If action = "retag" Then
@@ -41,9 +39,7 @@ Private Sub UserForm_Activate()
             LBstartReTag.Visible = True
             CBstartReTag.Visible = True
             LBnewIC.Visible = True
-            LBnewICTL.Visible = True
             TBnewIC.Visible = True
-            TBnewICTL.Visible = True
             btnRetag.Visible = True
             
         ElseIf action = "untag" Then
@@ -53,9 +49,10 @@ Private Sub UserForm_Activate()
             L1.Visible = True
             L2.Visible = True
             LBstartReTag.Visible = True
+            LBstartReTag.Caption = "Effective Untag Month:"
             CBstartReTag.Visible = True
             btnUntag.Visible = True
-            
+            LBlessSix.Caption = "Reason for untagging when tagging <6 months:"
             
         End If
 '=========================================================================================================
@@ -120,7 +117,7 @@ Private Sub UserForm_Activate()
         End If
     End With
     
-    For i = 0 To 3
+    For i = 0 To 7
         CBstartReTag.AddItem Format(DateAdd("m", i, Date), "mmm-yy")
     Next i
     
@@ -157,6 +154,13 @@ Private Sub btnRetag_Click()
         MsgBox "Please input the new IC TL's 1Bank.", vbInformation, "DBS Bank - Live more, Bank less"
         Exit Sub
     End If
+    If TBlessSix.Visible = True Then
+        If TBlessSix.Value = "" Then
+            MsgBox "Please input the reason for retagging.", vbInformation, "DBS Bank - Live more, Bank less"
+            Exit Sub
+        End If
+    End If
+    
     
     'Read and load the original tagging date, and effective retagging date
     xYear = CInt(Split(CBstartTag.Value, "-")(1))
@@ -366,6 +370,8 @@ Public Sub btnUntag_Click()
         Exit Sub
     End If
     
+    
+    
     iYear = CInt(Split(CBstartTag.Value, "-")(1))
     iMonth = month("01/" & Format(Split(CBstartTag.Value, "-")(0), "mmmm"))
     startTag = DateSerial(iYear, iMonth, 1)
@@ -384,6 +390,12 @@ Public Sub btnUntag_Click()
         caseID = cid
     Else
         caseID = ShowAll.TBcaseID.Value
+        If TBlessSix.Visible = True Then
+            If TBlessSix.Value = "" Then
+                MsgBox "Please input the reason for retagging.", vbInformation, "DBS Bank - Live more, Bank less"
+                Exit Sub
+            End If
+        End If
         ans = MsgBox("This action cannot be undone. Continue?", vbYesNo, "DBS Bank - Live more, Bank less")
         If ans = vbNo Then
             Exit Sub
@@ -397,7 +409,6 @@ Public Sub btnUntag_Click()
     rs.Open strSQL, cnn, adOpenDynamic, adLockOptimistic, adCmdText
     
     With rs
-        
         .Fields("CaseStatus").Value = "Untagged"
         .Fields("ApprovalRejectDate").Value = Evaluate("=NOW()")
                
@@ -409,7 +420,7 @@ Public Sub btnUntag_Click()
             End If
             
             If DateDiff("m", .Fields("TaggedMonth").Value, .Fields("UntaggedMonth").Value) < 6 Then
-                .Fields("TaggedLessThan6Months").Value = "Yes"
+                .Fields("TaggedLessThan6Months").Value = Evaluate("RIGHT(" & .Fields("ForRetagging").Value & ", Len(" & .Fields("ForRetagging").Value & ") - find("" ""," & .Fields("ForRetagging").Value) & ")" & ")"
             End If
             
         'if just a normal untagging
@@ -420,7 +431,7 @@ Public Sub btnUntag_Click()
                 End If
                 
                 If DateDiff("m", .Fields("TaggedMonth").Value, .Fields("UntaggedMonth").Value) < 6 Then
-                    .Fields("TaggedLessThan6Months").Value = "Yes"
+                    .Fields("TaggedLessThan6Months").Value = TBlessSix.Value
                 End If
         End If
 
@@ -476,9 +487,27 @@ emptyField:
     Unload Me
     Exit Sub
 End Sub
-' index match to pull the IC's TL automatically
-Private Sub TBnewIC_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    TBnewICTL.Value = Evaluate("IFERROR(INDEX('DB'!C:C,MATCH(""" & TBnewIC.Value & """,'DB'!J:J,0)),"""")")
+
+Private Sub CBstartRetag_Change()
+    iYear = CInt(Split(CBstartTag.Value, "-")(1))
+    iMonth = month("01/" & Format(Split(CBstartTag.Value, "-")(0), "mmmm"))
+    startTag = DateSerial(iYear, iMonth, 1)
+    
+    iYear = CInt(Split(CBstartReTag.Value, "-")(1))
+    iMonth = month("01/" & Format(Split(CBstartReTag.Value, "-")(0), "mmmm"))
+    endTag = DateSerial(iYear, iMonth, 1)
+    
+    If DateDiff("m", startTag, endTag) < 6 Then
+        LBlessSix.Visible = True
+        TBlessSix.Visible = True
+        LBnewIC.Top = 528
+        TBnewIC.Top = 528
+        btnUntag.Top = 528
+    Else
+        LBlessSix.Visible = False
+        TBlessSix.Visible = False
+        btnUntag.Top = 504
+    End If
 End Sub
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     'UnhookFormScroll
