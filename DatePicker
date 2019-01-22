@@ -8,7 +8,7 @@ If SelectedDate = False Then
     Exit Sub
 End If
 
-If DateDiff("m", CBmonth.Value & "/" & CByear.Value, Date) < 1 Then
+If DateDiff("m", CBmonth.Value & "/" & CByear.Value, Date) < 0 Then
     MsgBox "Please select a valid date!", vbInformation, "DBS - Live more, Bank less"
     Exit Sub
 End If
