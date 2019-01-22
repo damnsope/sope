@@ -1,19 +1,19 @@
-
 Private Sub UserForm_Activate()
     TBuser.Value = LCase(Environ("Username"))
-    dbPath = Sheets(1).Range("A3").Value
 End Sub
 'Code that passes SQL query into database and exports file. The normal code in the rest of the forms can't export, only by creating queryDef
 Private Sub btnLogin_Click()
+
  Dim cnn As ADODB.Connection, rs As ADODB.Recordset, wk As Workbook, i As Long, fileName As String
  dbPath = Sheets(1).Range("A3").Value
     If TBpass.Value = "dbs2018" Then
         Application.ScreenUpdating = False
         Unload Me
-        Set wk = Workbooks.Add
-    
+        
+        '===============================================================================================================================
         If action = "export" Then
-            strSQL = "SELECT [SAccount] , [CollectionID], [HouseholdName], [RM], [IC], [ICType], [TaggedMonth], [UntaggedMonth] FROM IC_Tagging WHERE [CaseStatus] = 'Approved'"""
+            strSQL = "SELECT [SAccount] , [CollectionID], [HouseholdName], [RM], [IC], [ICType], [TaggedMonth], [UntaggedMonth] FROM IC_Tagging WHERE [CaseStatus] = 'Approved'"
+            Set wk = Workbooks.Add
             wk.Sheets(1).Range("A1").Value = "s_account"
             wk.Sheets(1).Range("B1").Value = "collection_id"
             wk.Sheets(1).Range("C1").Value = "household_name"
@@ -25,6 +25,7 @@ Private Sub btnLogin_Click()
             
         ElseIf action = "bluesky" Then
             strSQL = "SELECT [SAccount], [Segment], [CollectionID], [IC], [IC], [ICType], [IPOTaggedMonth],[IPOUntaggedMonth], [TaggedMonth],[UntaggedMonth] FROM IC_Tagging WHERE [CaseStatus] = 'Approved'"
+            Set wk = Workbooks.Add
             wk.Sheets(1).Range("A1").Value = "s-account"
             wk.Sheets(1).Range("B1").Value = "segment"
             wk.Sheets(1).Range("C1").Value = "COLLECTION_ID"
@@ -35,9 +36,13 @@ Private Sub btnLogin_Click()
             wk.Sheets(1).Range("H1").Value = "IPO_END_DT"
             wk.Sheets(1).Range("I1").Value = "TAGGING_START_DT"
             wk.Sheets(1).Range("K1").Value = "TAGGING_END_DT"
-            
-        End If
         
+        ElseIf action = "wmo" Then
+            wmoInput.Show
+            Unload Me
+            Exit Sub
+        End If
+        '===============================================================================================================================
    Else
         MsgBox "Incorrect credentials.", vbInformation, "DBS Bank - Live more, Bank less"
         Unload Me
@@ -51,14 +56,14 @@ Private Sub btnLogin_Click()
     
     wk.Sheets(1).Range("A2").CopyFromRecordset rs
     wk.Sheets(1).Activate
-    
+    '===============================================================================================================================
     If action = "export" Then
         Range("G:H").NumberFormat = "mmm-yy"
+        
     ElseIf action = "bluesky" Then
         Range("C1000000").Select
         Selection.End(xlUp).Select
         lastR = ActiveCell.row
-        
         Range("G:K").NumberFormat = "yyyy-mm-dd"
         Range("K2").Formula = "=IF(J2<>"""",EOMONTH(J2,-1),date(9999,12,31))"
         Range("K2:K" & lastR).FillDown
@@ -111,7 +116,7 @@ Private Sub btnLogin_Click()
         Range("C:C").PasteSpecial xlPasteValues
         Range("B1").EntireColumn.Delete
     End If
-    '======================================
+    '===============================================================================================================================
     If action = "export" Then
         fileName = "IC Taggings List_"
     ElseIf action = "bluesky" Then
@@ -146,4 +151,3 @@ errorhandler:
     Unload Me
     Exit Sub
 End Sub
-
