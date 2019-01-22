@@ -1,11 +1,10 @@
-
 Sub Newapplicationform()
     action = "new"
-    NewApplicationARMRM.Show
+    NewApplication1.Show
 End Sub
 Sub CheckStatus()
     action = "check"
-    SearchTagging.Show
+    ShowAll.Show
 End Sub
 Sub PendingCaseForm()
     action = "pending"
@@ -17,7 +16,7 @@ Sub ReTaggingForm()
 End Sub
 Sub UnTaggingForm()
     action = "untag"
-    SearchTagging.Show
+    ShowAll.Show
 End Sub
 Sub Export()
     action = "export"
@@ -25,5 +24,9 @@ Sub Export()
 End Sub
 Sub Bluesky()
     action = "bluesky"
+    Admin.Show
+End Sub
+Sub WMO()
+    action = "wmo"
     Admin.Show
 End Sub
