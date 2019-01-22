@@ -2,7 +2,7 @@ Private Sub UserForm_Activate()
     Dim cnn As ADODB.Connection, rs As ADODB.Recordset
     Dim strSQL As String
     toFind = LCase(Environ("username"))
-    toFind = "wewew"
+    toFind = "eugenekoh"
     dbPath = Sheets(1).Range("A3").Value
     
     LBuser.Caption = "Searching pending applications for:   " & toFind
@@ -55,6 +55,14 @@ Private Sub UserForm_Activate()
     cnn.Close
     Set rs = Nothing
     Set cnn = Nothing
+    
+    'If user is an IC,
+    If LBdata.List(1, 3) = toFind Then
+        btnToggle.Visible = False
+        btnApprove.Visible = False
+        btnSelect.Left = 218
+    End If
+    
     Exit Sub
 noRecordsfound:
     MsgBox "You have no pending applications.", vbInformation, "DBS Bank - Live more, Bank less"
